@@ -1,0 +1,33 @@
+running develop
+Removing /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my-waypoint-follower.egg-link (link to .)
+running egg_info
+writing ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/PKG-INFO
+writing dependency_links to ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/dependency_links.txt
+writing entry points to ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/entry_points.txt
+writing requirements to ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/requires.txt
+writing top-level names to ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/top_level.txt
+reading manifest file '../../build/my_waypoint_follower/my_waypoint_follower.egg-info/SOURCES.txt'
+writing manifest file '../../build/my_waypoint_follower/my_waypoint_follower.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build
+creating /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib
+creating /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib/my_waypoint_follower
+copying my_waypoint_follower/__init__.py -> /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib/my_waypoint_follower
+copying my_waypoint_follower/waypoint_follower.py -> /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib/my_waypoint_follower
+copying my_waypoint_follower/pose_subscriber.py -> /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib/my_waypoint_follower
+running install
+running install_lib
+creating /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower
+copying /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib/my_waypoint_follower/__init__.py -> /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower
+copying /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib/my_waypoint_follower/waypoint_follower.py -> /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower
+copying /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build/lib/my_waypoint_follower/pose_subscriber.py -> /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower
+byte-compiling /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower/__init__.py to __init__.cpython-38.pyc
+byte-compiling /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower/waypoint_follower.py to waypoint_follower.cpython-38.pyc
+byte-compiling /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower/pose_subscriber.py to pose_subscriber.cpython-38.pyc
+running install_data
+running install_egg_info
+Copying ../../build/my_waypoint_follower/my_waypoint_follower.egg-info to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my_waypoint_follower-0.0.0-py3.8.egg-info
+running install_scripts
+Installing pose_subscriber script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+writing list of installed files to '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/install.log'
