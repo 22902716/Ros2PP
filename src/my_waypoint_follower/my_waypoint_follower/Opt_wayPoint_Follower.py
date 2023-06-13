@@ -11,6 +11,7 @@ from argparse import Namespace
 from geometry_msgs.msg import Twist
 from ackermann_msgs.msg import AckermannDriveStamped
 from sensor_msgs.msg import Joy
+import time
 
 class PoseSubscriberNode (Node):
     def __init__(self, wb, speedgain):
@@ -36,6 +37,8 @@ class PoseSubscriberNode (Node):
         self.lfd = 0.3                #lood forward distance
         self.yaw = 0.0
         self.speed = 0.0
+        self.csv = []
+
     
     def callback(self, msg: Odometry):
         cmd = AckermannDriveStamped()
@@ -47,8 +50,9 @@ class PoseSubscriberNode (Node):
         self.ow = msg.pose.pose.orientation.w
 
         self.search_nearest_target()
-        self.positionMessage()
+        current_pose = self.positionMessage()
         speed,steering_angle,ind = self.action()
+        self.csv.append(current_pose)
         
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering_angle
@@ -62,6 +66,10 @@ class PoseSubscriberNode (Node):
         if self.Joy7 == 1:
             self.drive_pub.publish(cmd)
 
+        if self.x < -0.01 and self.x > -0.1 and self.y < 1.0 and self.y > -1.0 and self.iteration_no < self.Max_iter and self.is_in == 0:
+            #set the condittion depending on the track for where the lap begins and ends 
+            np.savetxt("csv/"+self.mapname+"/real.csv", self.csv, delimiter=',',header="x,y,yaw,speed profile, actual speed",fmt="%-10f")
+
         # self.get_logger().info("pose_x = " + str(self.x) + " pose_y = " + str(self.y) + " orientation_z = " + str(self.yaw))
     
     def callbackJoy(self, msg: Joy):
@@ -69,7 +77,9 @@ class PoseSubscriberNode (Node):
                 
     def positionMessage(self):
         self.roll, self.pitch, self.yaw = self.euler_from_quaternion(self.ox,self.oy,self.oz,self.ow)
-        return self.x, self.y, self.roll, self.pitch, self.yaw
+        # return self.x, self.y, self.roll, self.pitch, self.yaw
+        return self.x, self.y, self.yaw, self.speed, self.lin_vel, time.time() - self.start_laptime
+
     
     
     def euler_from_quaternion(self,x, y, z, w):  
