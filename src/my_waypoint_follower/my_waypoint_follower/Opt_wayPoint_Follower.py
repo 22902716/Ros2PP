@@ -28,16 +28,28 @@ class PoseSubscriberNode (Node):
         self.ow = 0.0
         self.Joy7 = 0
 
+        self.load_waypoints()
+
         self.wheelbase = wb                 #vehicle wheelbase                           
         self.speedgain = speedgain          
         self.drawn_waypoints = []
         self.ego_index = None
         self.Tindx = None
-        self.v_gain = 0.25                  
-        self.lfd = 0.3                #lood forward distance
+        self.v_gain = 0.12                  
+        self.lfd = 0.1                #lood forward distance
         self.yaw = 0.0
         self.speed = 0.0
-        self.csv = []
+        self.csv_lap = []
+        self.csv_end = []
+        self.start_laptime = time.time()
+        self.act_x = []
+        self.act_y = []
+        self.ref_x = [] 
+        self.ref_y = []
+        self.act_v = []
+        self.ref_v = []
+        self.trackErr_list = []
+        self.lap_time = []
 
     
     def callback(self, msg: Odometry):
@@ -48,14 +60,53 @@ class PoseSubscriberNode (Node):
         self.oy = msg.pose.pose.orientation.y
         self.oz = msg.pose.pose.orientation.z
         self.ow = msg.pose.pose.orientation.w
+        self.linvel = msg.twist.twist.linear.x
 
         self.search_nearest_target()
+        self.poses = [self.x,self.y]
         current_pose = self.positionMessage()
         speed,steering_angle,ind = self.action()
-        self.csv.append(current_pose)
+        _,trackErr = self.interp_pts(self.ego_index,self.min_dist)
         
-        cmd.drive.speed = speed*self.speedgain
-        cmd.drive.steering_angle = steering_angle
+        self.act_x.append(self.x)
+        self.act_y.append(self.y)
+        self.ref_x.append(self.points[self.ego_index][0])
+        self.ref_y.append(self.points[self.ego_index][1])
+        self.act_v.append(self.lin_vel)
+        self.ref_v.append(self.speed_list[self.ego_index])
+        self.trackErr_list.append(trackErr)
+        self.lap_time.append(time.time() - self.start_laptime)
+
+        if self.completion >= 90:
+            self.get_logger().info("I finished running the lap")
+            cmd.drive.speed = 0.0
+            cmd.drive.steering_angle = steering_angle
+
+            self.act_x = np.array(self.act_x)
+            self.act_y = np.array(self.act_y)
+            self.ref_x = np.array(self.ref_x)
+            self.ref_y = np.array(self.ref_y)
+            self.act_v = np.array(self.act_v)
+            self.ref_v = np.array(self.ref_v)
+            self.trackErr_list = np.array(self.trackErr_list)
+            self.lap_time = np.array(self.lap_time)
+
+            save_arr = np.concatenate([self.lap_time[:,None]
+                                       ,self.act_x[:,None]
+                                       ,self.act_y[:,None]
+                                       ,self.ref_x[:,None]
+                                       ,self.ref_y[:,None]
+                                       ,self.act_v[:,None]
+                                       ,self.ref_v[:,None]
+                                       ,self.trackErr_list[:,None]
+                                       ],axis = 1)
+            self.csv_lap = np.array(self.csv_lap)
+            np.savetxt("csv/"+self.mapname+'/' +'physical_1.csv', save_arr, delimiter=',',header="laptime,x,y,x_ref,y_ref,speed,speed_ref,Tracking Error",fmt="%-10f")
+            
+        else:
+            cmd.drive.speed = speed*self.speedgain
+            cmd.drive.steering_angle = steering_angle
+
         self.get_logger().info("current ind = " + str(self.ego_index) 
                                + " current yaw = " + str(self.yaw)
                                + " tar_ind = " + str(self.Tindx)
@@ -65,12 +116,9 @@ class PoseSubscriberNode (Node):
                                + "tar_y = " + str(self.points[self.ego_index][1]))
         if self.Joy7 == 1:
             self.drive_pub.publish(cmd)
-
-        if self.x < -0.01 and self.x > -0.1 and self.y < 1.0 and self.y > -1.0 and self.iteration_no < self.Max_iter and self.is_in == 0:
-            #set the condittion depending on the track for where the lap begins and ends 
-            np.savetxt("csv/"+self.mapname+"/real.csv", self.csv, delimiter=',',header="x,y,yaw,speed profile, actual speed",fmt="%-10f")
-
-        # self.get_logger().info("pose_x = " + str(self.x) + " pose_y = " + str(self.y) + " orientation_z = " + str(self.yaw))
+        # self.get_logger().info("pose_x = " + str(self.x) 
+        #                        + " pose_y = " + str(self.y) 
+        #                        + " orientation_z = " + str(self.yaw))
     
     def callbackJoy(self, msg: Joy):
         self.Joy7 = msg.buttons[7]
@@ -112,16 +160,55 @@ class PoseSubscriberNode (Node):
         """
         loads waypoints
         """
-        
-        self.waypoints = np.loadtxt('office.csv', delimiter=',')
-        self.points = np.vstack((self.waypoints[:, 0], self.waypoints[:, 1])).T
+        self.mapname = "CornerHallE"
+        self.waypoints = np.loadtxt(self.mapname +'_raceline.csv', delimiter=',')
+        self.points = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
 
     def distanceCalc(self,x, y, tx, ty):     #tx = target x, ty = target y
         dx = tx - x
         dy = ty - y
         return np.hypot(dx, dy)
         
+    def interp_pts(self, idx, dists):
+        """
+        Returns the distance along the trackline and the height above the trackline
+        Finds the reflected distance along the line joining wpt1 and wpt2
+        Uses Herons formula for the area of a triangle
+        
+        """
+        seg_lengths = np.linalg.norm(np.diff(self.points, axis=0), axis=1)
+        self.ss = np.insert(np.cumsum(seg_lengths), 0, 0)
+        # print(len(self.ss))
+        if idx+1 >= len(self.ss):
+            idxadd1 = 0
+        else: 
+            idxadd1 = idx +1
+        d_ss = self.ss[idxadd1] - self.ss[idx]
 
+        d1, d2 = math.dist(self.points[idx],self.poses),math.dist(self.points[idxadd1],self.poses)
+
+        if d1 < 0.01: # at the first point
+            x = 0   
+            h = 0
+        elif d2 < 0.01: # at the second point
+            x = dists[idx] # the distance to the previous point
+            h = 0 # there is no distance
+        else: 
+            # if the point is somewhere along the line
+            s = (d_ss + d1 + d2)/2
+            Area_square = (s*(s-d1)*(s-d2)*(s-d_ss))
+            if Area_square < 0:
+                # negative due to floating point precision
+                # if the point is very close to the trackline, then the trianlge area is increadibly small
+                h = 0
+                x = d_ss + d1
+                # print(f"Area square is negative: {Area_square}")
+            else:
+                Area = Area_square**0.5
+                h = Area * 2/d_ss
+                x = (d1**2 - h**2)**0.5
+        return x, h
+    
     def search_nearest_target(self):
 
         self.speed_list = self.waypoints[:, 5]

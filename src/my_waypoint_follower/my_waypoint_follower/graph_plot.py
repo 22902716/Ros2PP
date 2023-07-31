@@ -23,5 +23,10 @@ def main():
         plt.savefig(f"src/my_waypoint_follower/my_waypoint_follower/csv/{mapname}/{TESTMODE}/graph/Speed_lap_{str(iteration_no)}.svg")
         iteration_no += 1
 
+    for i in range(0,Max_iter):
+        pass
+        
+
+
 if __name__ == "__main__":
     main()

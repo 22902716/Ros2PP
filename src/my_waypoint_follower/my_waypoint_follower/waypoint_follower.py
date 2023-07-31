@@ -12,18 +12,7 @@ from geometry_msgs.msg import Twist
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import LaserScan
-import matplotlib.pyplot as plt
 import time
-
-
-TESTMODE = "Benchmark"
-# TESTMODE = "v_gain"
-# TESTMODE = "lfd"
-# TESTMODE = "localnoise"
-# TESTMODE = "Outputnoise"
-# TESTMODE = "control_delay"
-# TESTMODE = "perception_delay"
-# TESTMODE = " "
 
 
 class PoseSubscriberNode (Node):
@@ -48,44 +37,38 @@ class PoseSubscriberNode (Node):
         self.drawn_waypoints = []
         self.ego_index = None
         self.Tindx = None
+        self.v_gain = 0.12                 #change this parameter for different tracks 
+        self.lfd = 0.1                     #lood forward distance constant
         self.yaw = 0.0
         self.speed = 0.0
         self.iteration_no = -1
-        self.csv = []
+        self.csv_lap = []
+        self.csv_end = []
+        self.start_laptime = time.time()
+        self.act_x = []
+        self.act_y = []
+        self.ref_x = [] 
+        self.ref_y = []
+        self.act_v = []
+        self.ref_v = []
+        self.trackErr_list = []
+        self.lap_time = []
 
-        if TESTMODE == "Benchmark" or TESTMODE == " ":
-            self.v_gain = 0.2                 #change this parameter for different tracks 
-            self.lfd = 0.2                     #lood forward distance constant
-            self.Max_iter = 5
-        elif TESTMODE == "localnoise" or TESTMODE == "Outputnoise":
-            self.v_gain = 0.2                 #change this parameter for different tracks 
-            self.lfd = 0.2                     #lood forward distance constant
-            self.Max_iter = 50
-        elif TESTMODE == "v_gain":
-            self.v_gain = 0.0                 #change this parameter for different tracks 
-            self.lfd = 0.2                     #lood forward distance constant
-            self.Max_iter = 50
-        elif TESTMODE == "lfd":
-            self.v_gain = 0.2                 #change this parameter for different tracks 
-            self.lfd = 0.0                     #lood forward distance constant
-            self.Max_iter = 50
-        elif TESTMODE == "control_delay" or TESTMODE == "perception_delay":
-            self.v_gain = 0.2                 #change this parameter for different tracks 
-            self.lfd = 0.2                     #lood forward distance constant
-            self.Max_iter = 10
+
+
     
     def callback(self, msg: Odometry):
         if self.is_start == None:
-            self.ego_reset()
+            # self.ego_reset()
             self.is_start = 1
             self.is_in = 0
         
 
-        if self.x < -0.01 and self.x > -0.1 and self.y < 1.0 and self.y > -1.0 and self.iteration_no < self.Max_iter and self.is_in == 0:
-            self.ego_reset()
-            self.is_in = 1
-        else:
-            self.is_in = 0
+        # if self.x < -0.01 and self.x > -0.1 and self.y < 1.0 and self.y > -1.0 and self.iteration_no < self.Max_iter and self.is_in == 0:
+        #     self.ego_reset()
+        #     self.is_in = 1
+        # else:
+        #     self.is_in = 0
 
         cmd = AckermannDriveStamped()
         self.x = msg.pose.pose.position.x
@@ -97,14 +80,56 @@ class PoseSubscriberNode (Node):
         self.lin_vel= msg.twist.twist.linear.x
 
         self.search_nearest_target()
+        self.poses = [self.x,self.y]
         current_pose = self.positionMessage()
         speed,steering_angle= self.action()
-        self.csv.append(current_pose)
+        _,trackErr = self.interp_pts(self.ego_index,self.min_dist)
 
-        cmd.drive.speed = speed*self.speedgain
-        cmd.drive.steering_angle = steering_angle
-        if self.iteration_no > self.Max_iter:
-            self.destroy_node()
+        self.act_x.append(self.x)
+        self.act_y.append(self.y)
+        self.ref_x.append(self.points[self.ego_index][0])
+        self.ref_y.append(self.points[self.ego_index][1])
+        self.act_v.append(self.lin_vel)
+        self.ref_v.append(self.speed_list[self.ego_index])
+        self.trackErr_list.append(trackErr)
+        self.lap_time.append(time.time() - self.start_laptime)
+         
+
+        self.get_logger().info(str(self.completion))
+
+        if self.completion >= 90:
+            self.get_logger().info("I finished running the lap")
+            cmd.drive.speed = 0.0
+            cmd.drive.steering_angle = steering_angle
+
+            self.act_x = np.array(self.act_x)
+            self.act_y = np.array(self.act_y)
+            self.ref_x = np.array(self.ref_x)
+            self.ref_y = np.array(self.ref_y)
+            self.act_v = np.array(self.act_v)
+            self.ref_v = np.array(self.ref_v)
+            self.trackErr_list = np.array(self.trackErr_list)
+            self.lap_time = np.array(self.lap_time)
+
+            save_arr = np.concatenate([self.lap_time[:,None]
+                                       ,self.act_x[:,None]
+                                       ,self.act_y[:,None]
+                                       ,self.ref_x[:,None]
+                                       ,self.ref_y[:,None]
+                                       ,self.act_v[:,None]
+                                       ,self.ref_v[:,None]
+                                       ,self.trackErr_list[:,None]
+                                       ],axis = 1)
+            self.csv_lap = np.array(self.csv_lap)
+            np.savetxt("csv/"+self.mapname+'/' +'ROS_1.csv', save_arr, delimiter=',',header="laptime,x,y,x_ref,y_ref,speed,speed_ref,Tracking Error",fmt="%-10f")
+            self.drive_pub.publish(cmd)
+            self.ego_reset()
+            time.sleep(100)
+            
+        else:
+            cmd.drive.speed = speed*self.speedgain
+            cmd.drive.steering_angle = steering_angle
+
 
 
         # self.get_logger().info("current ind = " + str(self.ego_index) 
@@ -152,17 +177,11 @@ class PoseSubscriberNode (Node):
         self.drive_pub.publish(cmd)
         self.iteration_no += 1
 
-        if TESTMODE == "localnoise" or TESTMODE == "Outputnoise":
-            pass
-        elif TESTMODE == "v_gain":
-            self.v_gain += 0.01
-        elif TESTMODE == "lfd":
-            self.lfd += 0.05                     #lood forward distance constant
-        elif TESTMODE == "control_delay" or TESTMODE == "perception_delay":
-            pass
-        np.savetxt("csv/"+self.mapname+'/' +TESTMODE+"/lap" + str(self.iteration_no) +'.csv', self.csv, delimiter=',',header="x,y,yaw,speed profile, actual speed",fmt="%-10f")
+    
+        np.savetxt("csv/"+self.mapname+'/' +'.csv', self.csv_lap, delimiter=',',header="x,y,x_ref,y_ref,speed,speed_ref",fmt="%-10f")
 
         self.csv = []
+        self.pose = []
         self.get_logger().info("Finished Resetting Vehicle now at lap " + str(self.iteration_no))
         self.start_laptime = time.time()
 
@@ -204,8 +223,8 @@ class PoseSubscriberNode (Node):
         """
         loads waypoints
         """
-        self.mapname = 'f1_aut_wide_raceline'
-        self.waypoints = np.loadtxt(self.mapname + '.csv', delimiter=',')
+        self.mapname = 'CornerHallE'
+        self.waypoints = np.loadtxt(self.mapname + '_raceline.csv', delimiter=',')
         self.points = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
 
     def distanceCalc(self,x, y, tx, ty):     #tx = target x, ty = target y
@@ -213,13 +232,52 @@ class PoseSubscriberNode (Node):
         dy = ty - y
         return np.hypot(dx, dy)
         
+    def interp_pts(self, idx, dists):
+        """
+        Returns the distance along the trackline and the height above the trackline
+        Finds the reflected distance along the line joining wpt1 and wpt2
+        Uses Herons formula for the area of a triangle
+        
+        """
+        seg_lengths = np.linalg.norm(np.diff(self.points, axis=0), axis=1)
+        self.ss = np.insert(np.cumsum(seg_lengths), 0, 0)
+        # print(len(self.ss))
+        if idx+1 >= len(self.ss):
+            idxadd1 = 0
+        else: 
+            idxadd1 = idx +1
+        d_ss = self.ss[idxadd1] - self.ss[idx]
+
+        d1, d2 = math.dist(self.points[idx],self.poses),math.dist(self.points[idxadd1],self.poses)
+
+        if d1 < 0.01: # at the first point
+            x = 0   
+            h = 0
+        elif d2 < 0.01: # at the second point
+            x = dists[idx] # the distance to the previous point
+            h = 0 # there is no distance
+        else: 
+            # if the point is somewhere along the line
+            s = (d_ss + d1 + d2)/2
+            Area_square = (s*(s-d1)*(s-d2)*(s-d_ss))
+            if Area_square < 0:
+                # negative due to floating point precision
+                # if the point is very close to the trackline, then the trianlge area is increadibly small
+                h = 0
+                x = d_ss + d1
+                # print(f"Area square is negative: {Area_square}")
+            else:
+                Area = Area_square**0.5
+                h = Area * 2/d_ss
+                x = (d1**2 - h**2)**0.5
+        return x, h
 
     def search_nearest_target(self):
 
         self.speed_list = self.waypoints[:, 5]
         poses = [self.x, self.y]
-        min_dist = np.linalg.norm(poses - self.points,axis = 1)
-        self.ego_index = np.argmin(min_dist)
+        self.min_dist = np.linalg.norm(poses - self.points,axis = 1)
+        self.ego_index = np.argmin(self.min_dist)
         if self.Tindx is None:
             self.Tindx = self.ego_index
         
@@ -246,6 +304,9 @@ class PoseSubscriberNode (Node):
             return self.speed, 0.
         radius = 1/(2.0*waypoint/self.Lf**2)
         steering_angle = np.arctan(self.wheelbase/radius)
+        self.completion = round(self.ego_index/len(self.points)*100,2)
+
+
 
         return self.speed, steering_angle
     

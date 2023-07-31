@@ -23,6 +23,7 @@ setup(
             "pose_subscriber = my_waypoint_follower.pose_subscriber:main",
             "waypoint_follower = my_waypoint_follower.waypoint_follower:main",
             "MPC_ros = my_waypoint_follower.MPC_ros:main"
+            "Opt_wayPoint_Follower =  my_waypoint_follower.Opt_wayPoint_Followermain."
         ],
     },
 )
