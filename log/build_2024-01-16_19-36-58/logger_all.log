@@ -1,0 +1,131 @@
+[3.281s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[3.281s] DEBUG:colcon:Parsed command line arguments: Namespace(allow_overriding=[], ament_cmake_args=None, base_paths=['.'], build_base='build', catkin_cmake_args=None, catkin_skip_building_tests=False, cmake_args=None, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, cmake_target=None, cmake_target_skip_unavailable=False, continue_on_error=False, event_handlers=None, executor='parallel', ignore_user_meta=False, install_base='install', log_base=None, log_level=None, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7f03c286a6d0>>, merge_install=False, metas=['./colcon.meta'], packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_end=None, packages_ignore=None, packages_ignore_regex=None, packages_select=None, packages_select_build_failed=False, packages_select_by_dep=None, packages_select_regex=None, packages_select_test_failures=False, packages_skip=None, packages_skip_build_finished=False, packages_skip_by_dep=None, packages_skip_regex=None, packages_skip_test_passed=False, packages_skip_up_to=None, packages_start=None, packages_up_to=None, packages_up_to_regex=None, parallel_workers=8, paths=None, symlink_install=False, test_result_base=None, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7f03c286a6d0>, verb_name='build', verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7f03c24b06a0>)
+[3.428s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[3.428s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[3.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[3.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[3.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[3.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[3.429s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/yiminglinux/Documents/Ros2PP'
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[3.429s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[3.467s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ignore', 'ignore_ament_install']
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore_ament_install'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_pkg']
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_pkg'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_meta']
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_meta'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ros']
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ros'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['cmake', 'python']
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'cmake'
+[3.468s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python'
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['python_setup_py']
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python_setup_py'
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extensions ['ignore', 'ignore_ament_install']
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extension 'ignore'
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extension 'ignore_ament_install'
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extensions ['colcon_pkg']
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extension 'colcon_pkg'
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extensions ['colcon_meta']
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extension 'colcon_meta'
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extensions ['ros']
+[3.469s] Level 1:colcon.colcon_core.package_identification:_identify(src/my_waypoint_follower) by extension 'ros'
+[3.480s] DEBUG:colcon.colcon_core.package_identification:Package 'src/my_waypoint_follower' with type 'ros.ament_python' and name 'my_waypoint_follower'
+[3.481s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[3.481s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[3.481s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[3.481s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[3.481s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[3.754s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[3.754s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[3.894s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 1 installed packages in /home/yiminglinux/Documents/Ros2PP/install
+[3.952s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 1 installed packages in /home/yiminglinux/sim_ws/install
+[4.007s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 1 installed packages in /home/yiminglinux/Masters/ros2_ws/install
+[4.056s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 258 installed packages in /opt/ros/foxy
+[4.058s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'cmake_args' from command line to 'None'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'cmake_target' from command line to 'None'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'cmake_clean_cache' from command line to 'False'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'cmake_clean_first' from command line to 'False'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'cmake_force_configure' from command line to 'False'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'ament_cmake_args' from command line to 'None'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'catkin_cmake_args' from command line to 'None'
+[4.577s] Level 5:colcon.colcon_core.verb:set package 'my_waypoint_follower' build argument 'catkin_skip_building_tests' from command line to 'False'
+[4.577s] DEBUG:colcon.colcon_core.verb:Building package 'my_waypoint_follower' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower', 'merge_install': False, 'path': '/home/yiminglinux/Documents/Ros2PP/src/my_waypoint_follower', 'symlink_install': False, 'test_result_base': None}
+[4.637s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[4.708s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[4.708s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/yiminglinux/Documents/Ros2PP/src/my_waypoint_follower' with build type 'ament_python'
+[4.708s] Level 1:colcon.colcon_core.shell:create_environment_hook('my_waypoint_follower', 'ament_prefix_path')
+[4.796s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[4.798s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/hook/ament_prefix_path.ps1'
+[4.810s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/hook/ament_prefix_path.dsv'
+[4.824s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/hook/ament_prefix_path.sh'
+[4.924s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[4.924s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[5.537s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/yiminglinux/Documents/Ros2PP/src/my_waypoint_follower'
+[5.585s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[5.585s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[6.585s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower': PYTHONPATH=/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --uninstall --editable --build-directory /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build
+[7.131s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower' returned '0': PYTHONPATH=/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --uninstall --editable --build-directory /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build
+[7.135s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/yiminglinux/Documents/Ros2PP/src/my_waypoint_follower': PYTHONPATH=/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../../build/my_waypoint_follower build --build-base /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build install --record /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/install.log --install-scripts $base/lib/my_waypoint_follower --single-version-externally-managed
+[7.570s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/yiminglinux/Documents/Ros2PP/src/my_waypoint_follower' returned '0': PYTHONPATH=/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../../build/my_waypoint_follower build --build-base /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build install --record /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/install.log --install-scripts $base/lib/my_waypoint_follower --single-version-externally-managed
+[7.653s] Level 1:colcon.colcon_core.environment:checking '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower' for CMake module files
+[7.654s] Level 1:colcon.colcon_core.environment:checking '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower' for CMake config files
+[7.655s] Level 1:colcon.colcon_core.environment:checking '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib'
+[7.655s] Level 1:colcon.colcon_core.environment:checking '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/bin'
+[7.655s] Level 1:colcon.colcon_core.environment:checking '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/pkgconfig/my_waypoint_follower.pc'
+[7.655s] Level 1:colcon.colcon_core.environment:checking '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages'
+[7.656s] Level 1:colcon.colcon_core.shell:create_environment_hook('my_waypoint_follower', 'pythonpath')
+[7.717s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/hook/pythonpath.ps1'
+[7.718s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/hook/pythonpath.dsv'
+[7.718s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/hook/pythonpath.sh'
+[7.719s] Level 1:colcon.colcon_core.environment:checking '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/bin'
+[7.719s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(my_waypoint_follower)
+[7.780s] INFO:colcon.colcon_core.shell:Creating package script '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/package.ps1'
+[7.802s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/package.dsv'
+[7.807s] INFO:colcon.colcon_core.shell:Creating package script '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/package.sh'
+[7.808s] INFO:colcon.colcon_core.shell:Creating package script '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/package.bash'
+[7.820s] INFO:colcon.colcon_core.shell:Creating package script '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/my_waypoint_follower/package.zsh'
+[7.826s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/share/colcon-core/packages/my_waypoint_follower)
+[7.828s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[7.829s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[7.829s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[7.830s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[7.967s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[7.967s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[7.967s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[7.984s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[8.037s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/yiminglinux/Documents/Ros2PP/install/local_setup.ps1'
+[8.039s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/yiminglinux/Documents/Ros2PP/install/_local_setup_util_ps1.py'
+[8.041s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/yiminglinux/Documents/Ros2PP/install/setup.ps1'
+[8.093s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/yiminglinux/Documents/Ros2PP/install/local_setup.sh'
+[8.094s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/yiminglinux/Documents/Ros2PP/install/_local_setup_util_sh.py'
+[8.095s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/yiminglinux/Documents/Ros2PP/install/setup.sh'
+[8.141s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/yiminglinux/Documents/Ros2PP/install/local_setup.bash'
+[8.141s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/yiminglinux/Documents/Ros2PP/install/setup.bash'
+[8.193s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/yiminglinux/Documents/Ros2PP/install/local_setup.zsh'
+[8.194s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/yiminglinux/Documents/Ros2PP/install/setup.zsh'

@@ -20,10 +20,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "pose_subscriber = my_waypoint_follower.pose_subscriber:main",
-            "waypoint_follower = my_waypoint_follower.waypoint_follower:main",
-            "MPC_ros = my_waypoint_follower.MPC_ros:main",
-            "Opt_wayPoint_Follower =  my_waypoint_follower.Opt_wayPoint_Follower:main"
+            "purePursuit_ros = my_waypoint_follower.purePursuit_ros:main",
+            "Opt_PurePursuit =  my_waypoint_follower.Opt_purePursuit_ros:main",
+            "MPC = my_waypoint_follower.MPC_ros:main",
+            "Opt_MPC = my_waypoint_follower.Opt_MPC_ros:main"
         ],
     },
 )

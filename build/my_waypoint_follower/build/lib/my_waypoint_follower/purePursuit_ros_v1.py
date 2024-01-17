@@ -13,14 +13,22 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import LaserScan
 import time
+import DataSave
 
 
 class PoseSubscriberNode (Node):
     def __init__(self, wb = 0.324, speedgain = 1.):
+
+        self.mapnamemapname = 'CornerHall'
+        self.mapname = 'f1_aut_wide'
+        self.mapname = 'levine_blocked'
+        max_iter = 3
+
         super().__init__("waypoint_follower")
         self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.ego_reset_pub = self.create_publisher(PoseWithCovarianceStamped, '/initialpose', 10)
+        self.ds = DataSave("Benchmark", self.mapname, max_iter)
 
         self.x = 0.0
         self.y = 0.0
@@ -30,7 +38,7 @@ class PoseSubscriberNode (Node):
         self.ow = 0.0
         self.is_start = None
 
-        self.load_waypoints()
+        self.load_waypoints(self.mapname)
 
         self.wheelbase = wb                 #vehicle wheelbase                           
         self.speedgain = speedgain          
@@ -219,12 +227,12 @@ class PoseSubscriberNode (Node):
 
 
 
-    def load_waypoints(self):
+    def load_waypoints(self,mapname):
         """
         loads waypoints
         """
-        self.mapname = 'CornerHallE'
-        self.waypoints = np.loadtxt(self.mapname + '_raceline.csv', delimiter=',')
+        mapname = 'CornerHallE'
+        self.waypoints = np.loadtxt('maps/' + mapname + '_raceline.csv', delimiter=',')
         self.points = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
 
     def distanceCalc(self,x, y, tx, ty):     #tx = target x, ty = target y
