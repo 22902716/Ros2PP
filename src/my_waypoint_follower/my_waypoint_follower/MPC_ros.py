@@ -4,79 +4,70 @@
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from warnings import WarningMessage
 import numpy as np
 import math, cmath
 import casadi as ca
-from argparse import Namespace
-from geometry_msgs.msg import Twist
 from ackermann_msgs.msg import AckermannDriveStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped
+import time
+
 
 
 class MPCControllerNode (Node):
-    def __init__(self, dt, N, speedgain=1.0, L = 0.324):
+    def __init__(self):
+
+        mapname_list = ["gbr", "mco", "esp", "CornerHall", "f1_aut_wide", "levine_blocked"] 
+        mapname = mapname_list[0]
+        max_iter = 1
+        self.is_start = None
+
         #initialise subscriber and publisher node
         super().__init__("MPC_ros")
         self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
+        self.ego_reset_pub = self.create_publisher(PoseWithCovarianceStamped, '/initialpose', 10)
 
         #initialise position vectors 
-        self.x = 0.0
-        self.y = 0.0
-        #quaterion vectors given by the 'ego_racecar/odom' topic later converted into euler
-        self.ox = 0.0
-        self.oy = 0.0
-        self.oz = 0.0
-        self.ow = 0.0
+        self.x0 = [0.0] * 4         #x_pos, y_pos, yaw, speed 
+        self.speedgain = 0.9
+        self.iter = 0
 
-
-        self.yaw = 0.0
-        self.speed = 0.0
-        self.speedgain = speedgain    
-
-        #MPC specific parameters
-        self.dt = dt
-        self.L = L
-        self.N = N # number of steps to predict
-        self.nx = 4
-        self.nu = 2
-        self.u_min = [-0.4,-13]
-        self.u_max = [0.4, 13]
-        self.drawn_waypoints = []
-
-        #trajectory class
-        self.wpts = None
-        self.ss = None
-        self.total_s = None
-        self.vs = None
-        
-        self.max_distance = 0
-        self.distance_allowance = 1
-        self.constantspeed = 0.5
-
-        self.load_waypoints()
+        self.planner = MPC(mapname)
+        self.ds = dataSave("ros_rviz", mapname, max_iter)
 
     
     def callback(self, msg: Odometry):
+
+        if self.is_start == None:
+            # self.ego_reset()
+            self.is_start = 1
+            self.is_in = 0
+            self.start_laptime = time.time() #come back to this put this somewhere else
+
         cmd = AckermannDriveStamped()
-        self.x = msg.pose.pose.position.x
-        self.y = msg.pose.pose.position.y
-        self.ox = msg.pose.pose.orientation.x
-        self.oy = msg.pose.pose.orientation.y
-        self.oz = msg.pose.pose.orientation.z
-        self.ow = msg.pose.pose.orientation.w
-        self.currentSpeed_x = msg.twist.twist.linear.x
+        lapsuccess = 0 if self.planner.completion<99 else 1
+        laptime = time.time() - self.start_laptime
 
-        self.positionMessage()
+        self.ori_x = [msg.pose.pose.orientation.x,
+                      msg.pose.pose.orientation.y,
+                      msg.pose.pose.orientation.z,
+                      
+                      msg.pose.pose.orientation.w]
+        self.yaw = self.planner.euler_from_quaternion(self.ori_x[0],
+                                              self.ori_x[1],
+                                              self.ori_x[2],
+                                              self.ori_x[3])
+        self.x0 = [msg.pose.pose.position.x,
+                   msg.pose.pose.position.y,
+                   self.yaw,
+                   msg.twist.twist.linear.x]
 
-        self.dt = 0.01*self.currentSpeed_x+0.1          
-        #self.dt = 0.01*self.currentSpeed_x+0.1
-        x0 = [self.x,self.y,self.yaw,self.currentSpeed_x]
-        steering_angle, x_bar,speed, acc = self.plan(x0)
+        indx, trackErr,speed,steering = self.planner.plan(self.x0)
+        self.get_logger().info("i planned")
         
         cmd.drive.speed = speed*self.speedgain
-        cmd.drive.steering_angle = steering_angle
-        self.get_logger().info("current time step = " + str(self.dt))
+        cmd.drive.steering_angle = steering
+        self.get_logger().info("current time step: dt = " + str(self.planner.dt))
         # self.get_logger().info("current speed x = " + str(self.currentSpeed_x)
         #                     + "current speed y = " + str(self.currentSpeed_y)
         #                     + "current speed z = " + str(self.currentSpeed_z))
@@ -86,43 +77,76 @@ class MPCControllerNode (Node):
         #                        + "cur_y = " + str(self.y)
         #                        + " tar_x = " + str(self.points[self.ego_index][0])
         #                        + "tar_y = " + str(self.points[self.ego_index][1]))
-        self.drive_pub.publish(cmd)
+        self.get_logger().info(str(self.planner.completion))
+
+        if self.planner.completion >= 99:
+            
+            self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
+            self.get_logger().info("Lap info csv saved")
+            self.ds.savefile(self.iter)
+            self.get_logger().info("States for the lap saved")
+            self.ego_reset_stop()
+            self.ds.saveLapInfo()
+            rclpy.shutdown()     
+        else:
+            self.drive_pub.publish(cmd)
+            self.get_logger().info("i published")
+
+
+
+        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
+
 
         # self.get_logger().info("pose_x = " + str(self.x) + " pose_y = " + str(self.y) + " orientation_z = " + str(self.yaw))
                 
-    def positionMessage(self):
-        self.roll, self.pitch, self.yaw = self.euler_from_quaternion(self.ox,self.oy,self.oz,self.ow)
-        return self.x, self.y, self.roll, self.pitch, self.yaw
-    
-    
-    def euler_from_quaternion(self,x, y, z, w):  
-        """
-        Convert a quaternion into euler angles (roll, pitch, yaw)
-        roll is rotation around x in radians (counterclockwise)
-        pitch is rotation around y in radians (counterclockwise)
-        yaw is rotation around z in radians (counterclockwise)
-        """
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll_x = math.atan2(t0, t1)
-     
-        t2 = +2.0 * (w * y - z * x)
-        t2 = +1.0 if t2 > +1.0 else t2
-        t2 = -1.0 if t2 < -1.0 else t2
-        pitch_y = math.asin(t2)
-     
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw_z = math.atan2(t3, t4)
-     
-        return roll_x, pitch_y, yaw_z # in radians
-    
-    def load_waypoints(self):
+    def ego_reset_stop(self):
+        msg = PoseWithCovarianceStamped()
+        msg.pose.pose.position.x = 0.0 
+        msg.pose.pose.position.y = 0.0
+
+        msg.pose.pose.orientation.x = 0.0
+        msg.pose.pose.orientation.y = 0.0
+        msg.pose.pose.orientation.z = 0.0
+        msg.pose.pose.orientation.w = 1.0
+
+        self.ego_index = None
+        self.Tindx = None
+        self.x0 = [0.0] * 4      #x_pos, y_pos, yaw, speed  
+        self.ego_reset_pub.publish(msg)
+
+        cmd = AckermannDriveStamped()
+        cmd.drive.speed = 0.
+        cmd.drive.steering_angle = 0.
+        self.drive_pub.publish(cmd)
+        # self.iteration_no += 1
+
+        self.get_logger().info("Finished Resetting Vehicle")
+#_________________________________________________________________________________________________________________________________________
+
+class MPC():
+    def __init__(self,mapname):
+        #MPC specific parameters
+        self.dt = 0.2       #this is initialisation default, require tuning to make sure no crash 
+        self.L = 0.324
+        self.N = 5          # number of steps to predict
+        self.nx = 4
+        self.nu = 2
+        self.u_min = [-0.4,-13]
+        self.u_max = [0.4, 13]
+        self.load_waypoints(mapname)
+        self.completion = 0.0
+
+        #MPC parameters
+        self.dt_gain = 0.013         #tune these two parameters before running
+        self.dt_constant = 0.05
+
+
+    def load_waypoints(self,mapname):
         """
         loads waypoints
         """
         
-        self.waypoints = np.loadtxt('f1_aut_wide_raceline.csv', delimiter=',')
+        self.waypoints = np.loadtxt(f'maps/{mapname}_raceline.csv', delimiter=',')
         self.wpts = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
 
         self.diffs = self.wpts[1:,:] - self.wpts[:-1,:]
@@ -132,10 +156,21 @@ class MPCControllerNode (Node):
         self.ss = np.insert(np.cumsum(seg_lengths), 0, 0)
 
         self.trueSpeedProfile = self.waypoints[:, 5]
-        self.vs = self.trueSpeedProfile * self.speedgain  #speed profile
+        self.speed_list = self.waypoints[:, 5]
+
+        self.vs = self.trueSpeedProfile  #speed profile
 
         self.total_s = self.ss[-1]
-        self.tN = len(self.wpts)
+
+
+    def euler_from_quaternion(self,x, y, z, w):  
+
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = math.atan2(t3, t4)
+     
+        return yaw_z # in radians
+    
 
     def get_timed_trajectory_segment(self, position, dt, n_pts=10):
         pose = np.array([position[0], position[1], position[3]])
@@ -233,14 +268,20 @@ class MPCControllerNode (Node):
         return u0_estimated
     
     def plan(self, x0):
-
+        self.dt = self.dt_gain*x0[3]+self.dt_constant          
         reference_path = self.get_timed_trajectory_segment(x0, self.dt, self.N+2)
         u0_estimated = self.estimate_u0(reference_path, x0)
 
         u_bar, x_bar = self.generate_optimal_path(x0, reference_path[:-1].T, u0_estimated)
 
+        pose = np.array([x0[0], x0[1]])
+        ego_index,min_dists = self.get_trackline_segment(pose)
+        # self.completion = 100 if ego_index/len(self.wpts) == 0 else round(ego_index/len(self.wpts)*100,2)
+        self.completion = round(ego_index/len(self.wpts)*100,2)        
+        _,trackErr = self.interp_pts(ego_index, min_dists)
         speed = x0[3] + u_bar[0][1]*self.dt
-        return u_bar[0][0],x_bar, speed,u_bar[0][1] # return the first control action
+
+        return ego_index, trackErr, speed, u_bar[0][0] # return the first control action
         
     def generate_optimal_path(self, x0_in, x_ref, u_init):
         """generates a set of optimal control inputs (and resulting states) for an initial position, reference trajectory and estimated control
@@ -312,8 +353,56 @@ class MPCControllerNode (Node):
             u[1]
         )
         return xdot
-
 #_________________________________________________________________________________________________________________________________________
+class dataSave:
+    def __init__(self, TESTMODE, map_name,max_iter):
+        self.rowSize = 50000
+        self.stateCounter = 0
+        self.lapInfoCounter = 0
+        self.TESTMODE = TESTMODE
+        self.map_name = map_name
+        self.max_iter = max_iter
+        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_lapInfo = np.zeros((max_iter,8))
+
+    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
+        self.txt_x0[self.stateCounter,0] = time
+        self.txt_x0[self.stateCounter,1:4] = [x0[0],x0[1],x0[3]]
+        self.txt_x0[self.stateCounter,4] = expected_speed
+        self.txt_x0[self.stateCounter,5] = tracking_error
+        self.txt_x0[self.stateCounter,6] = noise
+        self.txt_x0[self.stateCounter,7] = completion
+        self.stateCounter += 1
+        #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise
+
+    def savefile(self, iter):
+        for i in range(self.rowSize):
+            if (self.txt_x0[i,4] == 0):
+                self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
+                break
+        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+
+        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.stateCounter = 0
+    
+    def lapInfo(self,lap_count, lap_success, laptime, completion, var1, var2, Computation_time):
+        self.txt_lapInfo[self.lapInfoCounter, 0] = lap_count
+        self.txt_lapInfo[self.lapInfoCounter, 1] = lap_success
+        self.txt_lapInfo[self.lapInfoCounter, 2] = laptime
+        self.txt_lapInfo[self.lapInfoCounter, 3] = completion
+        self.txt_lapInfo[self.lapInfoCounter, 4] = var1
+        self.txt_lapInfo[self.lapInfoCounter, 5] = var2
+        self.txt_lapInfo[self.lapInfoCounter, 6] = np.mean(self.txt_x0[:,5])
+        self.txt_lapInfo[self.lapInfoCounter, 7] = Computation_time
+        self.lapInfoCounter += 1
+        #lap_count, lap_success, laptime, completion, var1, var2, aveTrackErr, Computation_time
+
+    def saveLapInfo(self):
+        var1 = "NA"
+        var2 = "NA"
+        np.savetxt(f"csv/MPC_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+
+
 
 def calculate_angle_diff(angle_vec):
     angle_diff = np.zeros(len(angle_vec)-1)
@@ -331,21 +420,17 @@ def sub_angles_complex(a1, a2):
 
     return phase
         
-
-
-
+#_________________________________________________________________________________________________________________________
 def main(args = None):
     
     #use - ros2 run teleop_twist_keyboard teleop_twist_keyboard 
     #to move the car manually around the map
 
     rclpy.init(args = args)
-    timestep = 0.1     #look forward time step 0.12
-    N = 7               #number of predictions 7
-    MPC_controller_node = MPCControllerNode(timestep, N)
+    MPC_controller_node = MPCControllerNode()
 
     rclpy.spin(MPC_controller_node)          #allows the node to always been running 
     rclpy.shutdown()                    #shut dowwn the node
 
-
+#_________________________________________________________________________________________________________________________
     
