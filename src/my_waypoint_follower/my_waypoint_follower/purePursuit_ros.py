@@ -11,8 +11,8 @@ import time
 
 class PoseSubscriberNode(Node):
     def __init__(self):
-        mapname_list = ["gbr", "mco", "esp", "CornerHall", "f1_aut_wide", "levine_blocked"] 
-        mapname = mapname_list[0]
+        mapname_list = ["gbr", "mco", "esp", "CornerHallE", "f1_aut_wide", "levine_blocked"] 
+        mapname = mapname_list[3]
         max_iter = 3
         self.speedgain = 1.
 
@@ -32,6 +32,7 @@ class PoseSubscriberNode(Node):
         self.x0 = [0.0] * 4      #x_pos, y_pos, yaw, speed  
 
         self.iter = 0
+        self.cmd_start_timer = time.perf_counter()
 
     def callback(self, msg:Odometry):
         if self.is_start == None:
@@ -42,6 +43,7 @@ class PoseSubscriberNode(Node):
 
         lapsuccess = 0 if self.planner.completion<99 else 1
         laptime = time.time() - self.start_laptime
+        self.cmd_current_timer = time.perf_counter()
 
         cmd = AckermannDriveStamped()
 
@@ -60,7 +62,7 @@ class PoseSubscriberNode(Node):
         indx, trackErr, speed, steering = self.planner.action(self.x0)
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
-        self.drive_pub.publish(cmd)
+        # self.drive_pub.publish(cmd)
 
         if self.planner.completion >= 99:
             
@@ -72,7 +74,10 @@ class PoseSubscriberNode(Node):
             self.ds.saveLapInfo()
             rclpy.shutdown()     
         else:
-            self.drive_pub.publish(cmd)
+            if self.cmd_current_timer - self.cmd_start_timer >= 0.02:
+                self.drive_pub.publish(cmd)
+                self.get_logger().info("i published")
+                self.cmd_start_timer = self.cmd_current_timer
         # self.get_logger().info("current ind = " + str(indx) 
         #                        + " current yaw = " + str(self.x0[2])
         #                        + " tar_ind = " + str(self.planner.Tindx)

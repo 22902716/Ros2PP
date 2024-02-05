@@ -23,6 +23,7 @@ setup(
             "purePursuit_ros = my_waypoint_follower.purePursuit_ros:main",
             "Opt_PurePursuit =  my_waypoint_follower.Opt_purePursuit_ros:main",
             "MPC_ros = my_waypoint_follower.MPC_ros:main",
+            "MPC_ros_tuning = my_waypoint_follower.MPC_ros_tuning:main",
             "Opt_MPC = my_waypoint_follower.Opt_MPC_ros:main"
         ],
     },

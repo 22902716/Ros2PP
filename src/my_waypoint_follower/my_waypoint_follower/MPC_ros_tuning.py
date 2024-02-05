@@ -18,7 +18,7 @@ class MPCControllerNode (Node):
 
         mapname_list = ["gbr", "mco", "esp", "CornerHallE", "f1_aut_wide", "levine_blocked"] 
         mapname = mapname_list[3]
-        max_iter = 1
+        self.max_iter = 50
         self.is_start = None
 
         #initialise subscriber and publisher node
@@ -29,11 +29,21 @@ class MPCControllerNode (Node):
 
         #initialise position vectors 
         self.x0 = [0.0] * 4         #x_pos, y_pos, yaw, speed 
-        self.speedgain = 0.9
+        self.speedgain = 1.
+        self.x0_prev = [0.0]*4
         self.iter = 0
 
         self.planner = MPC(mapname)
-        self.ds = dataSave("ros_rviz", mapname, max_iter)
+        self.ds = dataSave("ros_rviz", mapname, self.max_iter)
+        self.crash_counter = 0
+        self.success_counter = 0
+        self.testmode_list = ["constant", "gain"]
+        self.testmode = self.testmode_list[1]
+        if self.testmode == "constant":
+            self.planner.dt_constant = 0.01
+        if self.testmode == "gain":
+            self.planner.dt_gain = 0.0000000
+
         self.cmd_start_timer = time.perf_counter()
 
 
@@ -41,10 +51,9 @@ class MPCControllerNode (Node):
     def callback(self, msg: Odometry):
 
         if self.is_start == None:
-            # self.ego_reset()
-            self.is_start = 1
-            self.is_in = 0
+            self.ego_reset_stop()
             self.start_laptime = time.time() #come back to this put this somewhere else
+            self.is_start = 1
 
         cmd = AckermannDriveStamped()
         lapsuccess = 0 if self.planner.completion<99 else 1
@@ -55,12 +64,12 @@ class MPCControllerNode (Node):
         self.ori_x = [msg.pose.pose.orientation.x,
                       msg.pose.pose.orientation.y,
                       msg.pose.pose.orientation.z,
-                      
                       msg.pose.pose.orientation.w]
         self.yaw = self.planner.euler_from_quaternion(self.ori_x[0],
                                               self.ori_x[1],
                                               self.ori_x[2],
                                               self.ori_x[3])
+        self.x0_prev = self.x0
         self.x0 = [msg.pose.pose.position.x,
                    msg.pose.pose.position.y,
                    self.yaw,
@@ -68,7 +77,6 @@ class MPCControllerNode (Node):
 
         indx, trackErr,speed,steering = self.planner.plan(self.x0)
         # self.get_logger().info("i planned")
-        
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
         # self.get_logger().info("current time step: dt = " + str(self.planner.dt))
@@ -81,24 +89,49 @@ class MPCControllerNode (Node):
         #                        + "cur_y = " + str(self.y)
         #                        + " tar_x = " + str(self.points[self.ego_index][0])
         #                        + "tar_y = " + str(self.points[self.ego_index][1]))
-        self.get_logger().info(str(self.x0[3]))
+        # self.get_logger().info(str(self.planner.completion))
 
-        if self.planner.completion >= 99:
+        if self.planner.completion >= 99 :
             
             self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
             self.get_logger().info("Lap info csv saved")
             self.ds.savefile(self.iter)
             self.get_logger().info("States for the lap saved")
             self.ego_reset_stop()
-            self.ds.saveLapInfo()
-            rclpy.shutdown()     
+            self.success_counter += 1
+            
+            #============================================================
+            if self.testmode == "constant":
+                self.planner.dt_constant += 0.01
+            if self.testmode == "gain":
+                self.planner.dt_gain += 0.001
+
         else:
             if self.cmd_current_timer - self.cmd_start_timer >= 0.02:
                 self.drive_pub.publish(cmd)
                 # self.get_logger().info("i published")
                 self.cmd_start_timer = self.cmd_current_timer
 
-
+            # self.get_logger().info("i published")
+            if (self.x0_prev[3]-self.x0[3]) > 0.4:
+                self.get_logger().info("i crashed")
+                self.crash_counter += 1
+                if self.testmode == "constant":
+                    self.planner.dt_constant += 0.01
+                if self.testmode == "gain":
+                    self.planner.dt_gain += 0.001
+                self.ego_reset_stop()
+                time.sleep(0.5)
+                
+            # self.get_logger().info("current speed = " + str(self.x0[3]) + "previous speed = " + str(self.x0_prev[3]))
+                self.get_logger().info(str(self.planner.dt_constant)
+                               +"+"
+                               +str(self.planner.dt_gain)
+                               +"*"
+                               +str(self.x0[3]))
+        if self.crash_counter + self.success_counter > self.max_iter:
+            self.ds.saveLapInfo()
+            rclpy.shutdown()
 
         self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
 
@@ -115,8 +148,6 @@ class MPCControllerNode (Node):
         msg.pose.pose.orientation.z = 0.0
         msg.pose.pose.orientation.w = 1.0
 
-        self.ego_index = None
-        self.Tindx = None
         self.x0 = [0.0] * 4      #x_pos, y_pos, yaw, speed  
         self.ego_reset_pub.publish(msg)
 
@@ -386,7 +417,7 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/{self.TESTMODE}/{self.map_name}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,8))
         self.stateCounter = 0
@@ -439,4 +470,5 @@ def main(args = None):
     rclpy.shutdown()                    #shut dowwn the node
 
 #_________________________________________________________________________________________________________________________
-    
+if __name__ == "__main__":
+    main()

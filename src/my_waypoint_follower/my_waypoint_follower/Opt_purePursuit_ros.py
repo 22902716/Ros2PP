@@ -3,166 +3,111 @@
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from warnings import WarningMessage
 import numpy as np
-import yaml
 import math
-from argparse import Namespace
-from geometry_msgs.msg import Twist
 from ackermann_msgs.msg import AckermannDriveStamped
 from sensor_msgs.msg import Joy
 import time
 
 class PoseSubscriberNode (Node):
-    def __init__(self, wb, speedgain):
+    def __init__(self, speedgain):
         super().__init__("pp_follower")
+        mapname = "CornerHallE"
+        max_iter = 1
+        self.speedgain = 1.0
+
+        self.planner = PurePursuit(mapname, speedgain=self.speedgain)
+        self.ds = dataSave("ros_Car", mapname, max_iter)
         
         self.joy_sub = self.create_subscription(Joy, "joy", self.callbackJoy, 10)
         self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
-        self.x = 0.0
-        self.y = 0.0
-        self.ox = 0.0
-        self.oy = 0.0
-        self.oz = 0.0
-        self.ow = 0.0
         self.Joy7 = 0
 
-        self.load_waypoints()
-
-        self.wheelbase = wb                 #vehicle wheelbase                           
-        self.speedgain = speedgain          
-        self.drawn_waypoints = []
-        self.ego_index = None
-        self.Tindx = None
-        self.v_gain = 0.12                  
-        self.lfd = 0.1                #lood forward distance
-        self.yaw = 0.0
-        self.speed = 0.0
-        self.csv_lap = []
-        self.csv_end = []
-        self.start_laptime = time.time()
-        self.act_x = []
-        self.act_y = []
-        self.ref_x = [] 
-        self.ref_y = []
-        self.act_v = []
-        self.ref_v = []
-        self.trackErr_list = []
-        self.lap_time = []
+        self.x0 = [0.0] * 4      #x_pos, y_pos, yaw, speed  
+        self.cmd_start_timer = time.perf_counter()
 
     
     def callback(self, msg: Odometry):
-        cmd = AckermannDriveStamped()
-        self.x = msg.pose.pose.position.x
-        self.y = msg.pose.pose.position.y
-        self.ox = msg.pose.pose.orientation.x
-        self.oy = msg.pose.pose.orientation.y
-        self.oz = msg.pose.pose.orientation.z
-        self.ow = msg.pose.pose.orientation.w
-        self.linvel = msg.twist.twist.linear.x
 
-        self.search_nearest_target()
-        self.poses = [self.x,self.y]
-        current_pose = self.positionMessage()
-        speed,steering_angle,ind = self.action()
-        _,trackErr = self.interp_pts(self.ego_index,self.min_dist)
+        lapsuccess = 0 if self.planner.completion<99 else 1
+        laptime = time.time() - self.start_laptime
+        self.cmd_current_timer = time.perf_counter()
+
+        cmd = AckermannDriveStamped()
+
+        quat_ori = [msg.pose.pose.orientation.x,
+                    msg.pose.pose.orientation.y,
+                    msg.pose.pose.orientation.z,
+                    msg.pose.pose.orientation.w]
         
-        self.act_x.append(self.x)
-        self.act_y.append(self.y)
-        self.ref_x.append(self.points[self.ego_index][0])
-        self.ref_y.append(self.points[self.ego_index][1])
-        self.act_v.append(self.lin_vel)
-        self.ref_v.append(self.speed_list[self.ego_index])
-        self.trackErr_list.append(trackErr)
-        self.lap_time.append(time.time() - self.start_laptime)
+        yaw = self.euler_from_quaternion(quat_ori[0], quat_ori[1], quat_ori[2], quat_ori[3])
+
+        self.x0 = [msg.pose.pose.position.x,
+                   msg.pose.pose.position.y,
+                   yaw,
+                   msg.twist.twist.linear.x]
+
+        
+        indx, trackErr, speed, steering = self.planner.action(self.x0)
+        cmd.drive.speed = speed*self.speedgain
+        cmd.drive.steering_angle = steering
 
         if self.completion >= 90:
             self.get_logger().info("I finished running the lap")
-            cmd.drive.speed = 0.0
-            cmd.drive.steering_angle = steering_angle
-
-            self.act_x = np.array(self.act_x)
-            self.act_y = np.array(self.act_y)
-            self.ref_x = np.array(self.ref_x)
-            self.ref_y = np.array(self.ref_y)
-            self.act_v = np.array(self.act_v)
-            self.ref_v = np.array(self.ref_v)
-            self.trackErr_list = np.array(self.trackErr_list)
-            self.lap_time = np.array(self.lap_time)
-
-            save_arr = np.concatenate([self.lap_time[:,None]
-                                       ,self.act_x[:,None]
-                                       ,self.act_y[:,None]
-                                       ,self.ref_x[:,None]
-                                       ,self.ref_y[:,None]
-                                       ,self.act_v[:,None]
-                                       ,self.ref_v[:,None]
-                                       ,self.trackErr_list[:,None]
-                                       ],axis = 1)
-            self.csv_lap = np.array(self.csv_lap)
-            np.savetxt("csv/"+self.mapname+'/' +'physical_1.csv', save_arr, delimiter=',',header="laptime,x,y,x_ref,y_ref,speed,speed_ref,Tracking Error",fmt="%-10f")
-            
+            self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
+            self.get_logger().info("Lap info csv saved")
+            self.ds.savefile(self.iter)
+            self.get_logger().info("States for the lap saved")
+            self.ego_reset_stop()
+            self.ds.saveLapInfo()
+            rclpy.shutdown()    
         else:
-            cmd.drive.speed = speed*self.speedgain
-            cmd.drive.steering_angle = steering_angle
+            if self.cmd_current_timer - self.cmd_start_timer >= 0.02:
+                self.drive_pub.publish(cmd)
+                self.get_logger().info("i published")
+                self.cmd_start_timer = self.cmd_current_timer
 
-        self.get_logger().info("current ind = " + str(self.ego_index) 
-                               + " current yaw = " + str(self.yaw)
-                               + " tar_ind = " + str(self.Tindx)
-                               + "cur_x = " + str(self.x)
-                               + "cur_y = " + str(self.y)
-                               + " tar_x = " + str(self.points[self.ego_index][0])
-                               + "tar_y = " + str(self.points[self.ego_index][1]))
         if self.Joy7 == 1:
-            self.drive_pub.publish(cmd)
+            # self.drive_pub.publish(cmd)
+            self.get_logger().info("controller active")
+        else:
+            self.get_logger().info("controller inactive")
+            # cmd.drive.speed = 0.0
+            # cmd.drive.steering_angle = 0.0
+            # self.drive_pub.publish(cmd)
+
+        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
+
         # self.get_logger().info("pose_x = " + str(self.x) 
         #                        + " pose_y = " + str(self.y) 
         #                        + " orientation_z = " + str(self.yaw))
     
     def callbackJoy(self, msg: Joy):
         self.Joy7 = msg.buttons[7]
-                
-    def positionMessage(self):
-        self.roll, self.pitch, self.yaw = self.euler_from_quaternion(self.ox,self.oy,self.oz,self.ow)
-        # return self.x, self.y, self.roll, self.pitch, self.yaw
-        return self.x, self.y, self.yaw, self.speed, self.lin_vel, time.time() - self.start_laptime
-
-    
     
     def euler_from_quaternion(self,x, y, z, w):  
-        """
-        Convert a quaternion into euler angles (roll, pitch, yaw)
-        roll is rotation around x in radians (counterclockwise)
-        pitch is rotation around y in radians (counterclockwise)
-        yaw is rotation around z in radians (counterclockwise)
-        """
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll_x = math.atan2(t0, t1)
-     
-        t2 = +2.0 * (w * y - z * x)
-        t2 = +1.0 if t2 > +1.0 else t2
-        t2 = -1.0 if t2 < -1.0 else t2
-        pitch_y = math.asin(t2)
      
         t3 = +2.0 * (w * z + x * y)
         t4 = +1.0 - 2.0 * (y * y + z * z)
         yaw_z = math.atan2(t3, t4)
      
-        return roll_x, pitch_y, yaw_z # in radians
+        return yaw_z # in radians
 
 
-
-
-
-    def load_waypoints(self):
-        """
-        loads waypoints
-        """
-        self.mapname = "CornerHallE"
-        self.waypoints = np.loadtxt(self.mapname +'_raceline.csv', delimiter=',')
+class PurePursuit():
+    def __init__(self, mapname, wb = 0.324, speedgain = 1.):
+        self.waypoints = np.loadtxt('maps/' + mapname + '_raceline.csv', delimiter=',')
         self.points = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
+        self.completion = 0.0
+
+        self.wheelbase = wb                 #vehicle wheelbase                           
+        self.speedgain = speedgain  
+        self.ego_index = None
+        self.Tindx = None
+
+        self.v_gain = 0.07                 #change this parameter for different tracks 
+        self.lfd = 0.3  
 
     def distanceCalc(self,x, y, tx, ty):     #tx = target x, ty = target y
         dx = tx - x
@@ -208,23 +153,23 @@ class PoseSubscriberNode (Node):
                 h = Area * 2/d_ss
                 x = (d1**2 - h**2)**0.5
         return x, h
-    
-    def search_nearest_target(self):
 
-        self.speed_list = self.waypoints[:, 5]
-        poses = [self.x, self.y]
-        min_dist = np.linalg.norm(poses - self.points,axis = 1)
-        self.ego_index = np.argmin(min_dist)
+    def search_nearest_target(self,x0):
+
+        self.poses = [x0[0],x0[1]]
+        self.min_dist = np.linalg.norm(self.poses - self.points,axis = 1)
+        self.ego_index = np.argmin(self.min_dist)
         if self.Tindx is None:
             self.Tindx = self.ego_index
         
-
+        self.speed_list = self.waypoints[:, 5]
         self.speed = self.speed_list[self.ego_index]
+
         self.Lf = self.speed*self.v_gain + self.lfd  # update look ahead distance
         
         # search look ahead target point index
-        while self.Lf > self.distanceCalc(self.x,
-                                            self.y, 
+        while self.Lf > self.distanceCalc(x0[0],
+                                            x0[1], 
                                             self.points[self.Tindx][0], 
                                             self.points[self.Tindx][1]):
 
@@ -232,19 +177,71 @@ class PoseSubscriberNode (Node):
                 self.Tindx = 0
             else:
                 self.Tindx += 1
+        
+        return self.min_dist, self.ego_index
 
-    def action(self):
-        waypoint = np.dot (np.array([np.sin(-self.yaw),np.cos(-self.yaw)]),
-                           self.points[self.Tindx]-np.array([self.x, self.y]))   
+    def action(self, x0):
+        min_dist, indx = self.search_nearest_target(x0)
+        _, trackErr = self.interp_pts(indx, min_dist)
+
+        waypoint = np.dot (np.array([np.sin(-x0[2]),np.cos(-x0[2])]),
+                           self.points[self.Tindx]-np.array([x0[0], x0[1]]))   
         
         if np.abs(waypoint) < 1e-6:
             return self.speed, 0.
         radius = 1/(2.0*waypoint/self.Lf**2)
         steering_angle = np.arctan(self.wheelbase/radius)
+        self.completion = round(self.ego_index/len(self.points)*100,2)
 
-        return self.speed, steering_angle
+        return indx, trackErr, self.speed, steering_angle
+
+class dataSave:
+    def __init__(self, TESTMODE, map_name,max_iter):
+        self.rowSize = 50000
+        self.stateCounter = 0
+        self.lapInfoCounter = 0
+        self.TESTMODE = TESTMODE
+        self.map_name = map_name
+        self.max_iter = max_iter
+        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_lapInfo = np.zeros((max_iter,8))
+
+    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
+        self.txt_x0[self.stateCounter,0] = time
+        self.txt_x0[self.stateCounter,1:4] = [x0[0],x0[1],x0[3]]
+        self.txt_x0[self.stateCounter,4] = expected_speed
+        self.txt_x0[self.stateCounter,5] = tracking_error
+        self.txt_x0[self.stateCounter,6] = noise
+        self.txt_x0[self.stateCounter,7] = completion
+        self.stateCounter += 1
+        #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise
+
+    def savefile(self, iter):
+        for i in range(self.rowSize):
+            if (self.txt_x0[i,4] == 0):
+                self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
+                break
+        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+
+        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.stateCounter = 0
     
+    def lapInfo(self,lap_count, lap_success, laptime, completion, var1, var2, Computation_time):
+        self.txt_lapInfo[self.lapInfoCounter, 0] = lap_count
+        self.txt_lapInfo[self.lapInfoCounter, 1] = lap_success
+        self.txt_lapInfo[self.lapInfoCounter, 2] = laptime
+        self.txt_lapInfo[self.lapInfoCounter, 3] = completion
+        self.txt_lapInfo[self.lapInfoCounter, 4] = var1
+        self.txt_lapInfo[self.lapInfoCounter, 5] = var2
+        self.txt_lapInfo[self.lapInfoCounter, 6] = np.mean(self.txt_x0[:,5])
+        self.txt_lapInfo[self.lapInfoCounter, 7] = Computation_time
+        self.lapInfoCounter += 1
+        #lap_count, lap_success, laptime, completion, var1, var2, aveTrackErr, Computation_time
 
+    def saveLapInfo(self):
+        var1 = "NA"
+        var2 = "NA"
+        np.savetxt(f"csv/PP_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 

@@ -9,7 +9,7 @@ setup.py
 ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/top_level.txt
 ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/zip-safe
 my_waypoint_follower/MPC_ros.py
-my_waypoint_follower/MPC_ros_V1.py
+my_waypoint_follower/MPC_ros_tuning.py
 my_waypoint_follower/Opt_MPC_ros.py
 my_waypoint_follower/Opt_purePursuit_ros.py
 my_waypoint_follower/__init__.py
