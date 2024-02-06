@@ -10,22 +10,25 @@ from sensor_msgs.msg import Joy
 import time
 
 class PoseSubscriberNode (Node):
-    def __init__(self, speedgain):
+    def __init__(self):
         super().__init__("pp_follower")
         mapname = "CornerHallE"
         max_iter = 1
-        self.speedgain = 1.0
+        self.speedgain = 0.3
 
         self.planner = PurePursuit(mapname, speedgain=self.speedgain)
         self.ds = dataSave("ros_Car", mapname, max_iter)
         
-        self.joy_sub = self.create_subscription(Joy, "joy", self.callbackJoy, 10)
+        self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
         self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.Joy7 = 0
 
         self.x0 = [0.0] * 4      #x_pos, y_pos, yaw, speed  
         self.cmd_start_timer = time.perf_counter()
+        self.get_logger().info("initialised")
+        self.start_laptime = time.time()
+        
 
     
     def callback(self, msg: Odometry):
@@ -33,6 +36,7 @@ class PoseSubscriberNode (Node):
         lapsuccess = 0 if self.planner.completion<99 else 1
         laptime = time.time() - self.start_laptime
         self.cmd_current_timer = time.perf_counter()
+        #self.get_logger().info("in callback")       
 
         cmd = AckermannDriveStamped()
 
@@ -53,7 +57,7 @@ class PoseSubscriberNode (Node):
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
 
-        if self.completion >= 90:
+        if self.planner.completion >= 99:
             self.get_logger().info("I finished running the lap")
             self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
             self.get_logger().info("Lap info csv saved")
@@ -64,18 +68,16 @@ class PoseSubscriberNode (Node):
             rclpy.shutdown()    
         else:
             if self.cmd_current_timer - self.cmd_start_timer >= 0.02:
-                self.drive_pub.publish(cmd)
-                self.get_logger().info("i published")
+                if self.Joy7 == 1:
+                	# self.get_logger().info("controller active")
+                	self.drive_pub.publish(cmd)
+                else:
+                	# self.get_logger().info("controller inactive")
+                	cmd.drive.speed = 0.0
+                	cmd.drive.steering_angle = 0.0
+                	self.drive_pub.publish(cmd)
+                # self.get_logger().info("i published")
                 self.cmd_start_timer = self.cmd_current_timer
-
-        if self.Joy7 == 1:
-            # self.drive_pub.publish(cmd)
-            self.get_logger().info("controller active")
-        else:
-            self.get_logger().info("controller inactive")
-            # cmd.drive.speed = 0.0
-            # cmd.drive.steering_angle = 0.0
-            # self.drive_pub.publish(cmd)
 
         self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
 
@@ -97,6 +99,7 @@ class PoseSubscriberNode (Node):
 
 class PurePursuit():
     def __init__(self, mapname, wb = 0.324, speedgain = 1.):
+    
         self.waypoints = np.loadtxt('maps/' + mapname + '_raceline.csv', delimiter=',')
         self.points = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
         self.completion = 0.0
@@ -106,8 +109,8 @@ class PurePursuit():
         self.ego_index = None
         self.Tindx = None
 
-        self.v_gain = 0.07                 #change this parameter for different tracks 
-        self.lfd = 0.3  
+        self.v_gain = 0.1                 #change this parameter for different tracks 
+        self.lfd = 1.0  
 
     def distanceCalc(self,x, y, tx, ty):     #tx = target x, ty = target y
         dx = tx - x
@@ -249,13 +252,10 @@ def main(args = None):
     
     #use - ros2 run teleop_twist_keyboard teleop_twist_keyboard 
     #to move the car manually around the map
-    speedgain = 1.0
 
     rclpy.init(args = args)
-    controller_node = PoseSubscriberNode(0.324, speedgain)
+    controller_node = PoseSubscriberNode()
     # publish_node = PurePursuitPlanner(0.3,speedgain,0,0,0)
-    current_x,current_y,current_roll, current_pitch, current_yaw = controller_node.positionMessage()
-
 
     rclpy.spin(controller_node)          #allows the node to always been running 
     rclpy.shutdown()                    #shut dowwn the node
