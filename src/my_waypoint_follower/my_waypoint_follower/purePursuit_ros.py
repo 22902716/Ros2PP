@@ -64,7 +64,7 @@ class PoseSubscriberNode(Node):
         cmd.drive.steering_angle = steering
         # self.drive_pub.publish(cmd)
 
-        if self.planner.completion >= 99:
+        if self.planner.completion >= 90:
             
             self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
             self.get_logger().info("Lap info csv saved")

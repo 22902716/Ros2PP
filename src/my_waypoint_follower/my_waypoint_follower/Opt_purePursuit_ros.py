@@ -14,10 +14,10 @@ class PoseSubscriberNode (Node):
         super().__init__("pp_follower")
         mapname = "CornerHallE"
         max_iter = 1
-        self.speedgain = 0.3
+        self.speedgain = 0.8
 
         self.planner = PurePursuit(mapname, speedgain=self.speedgain)
-        self.ds = dataSave("ros_Car", mapname, max_iter)
+        self.ds = dataSave("ros_Car", mapname, max_iter, self.speedgain)
         
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
         self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
@@ -30,7 +30,7 @@ class PoseSubscriberNode (Node):
         self.start_laptime = time.time()
         
 
-    
+
     def callback(self, msg: Odometry):
 
         lapsuccess = 0 if self.planner.completion<99 else 1
@@ -57,33 +57,32 @@ class PoseSubscriberNode (Node):
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
 
-        if self.planner.completion >= 99:
+        if self.planner.completion >= 60:
             self.get_logger().info("I finished running the lap")
-            self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
+            self.ds.lapInfo(1, lapsuccess, laptime, self.planner.completion, self.planner.v_gain, self.planner.lfd, laptime)
             self.get_logger().info("Lap info csv saved")
-            self.ds.savefile(self.iter)
+            self.ds.savefile(1)
             self.get_logger().info("States for the lap saved")
-            self.ego_reset_stop()
             self.ds.saveLapInfo()
             rclpy.shutdown()    
         else:
-            if self.cmd_current_timer - self.cmd_start_timer >= 0.02:
+            if self.cmd_current_timer - self.cmd_start_timer >= 0.001:
                 if self.Joy7 == 1:
                 	# self.get_logger().info("controller active")
-                	self.drive_pub.publish(cmd)
+                    self.drive_pub.publish(cmd)
                 else:
                 	# self.get_logger().info("controller inactive")
-                	cmd.drive.speed = 0.0
-                	cmd.drive.steering_angle = 0.0
-                	self.drive_pub.publish(cmd)
+                    cmd.drive.speed = 0.0
+                    cmd.drive.steering_angle = 0.0
+                    self.drive_pub.publish(cmd)
                 # self.get_logger().info("i published")
-                self.cmd_start_timer = self.cmd_current_timer
+                self.cmd_start_timer = self.cmd_current_timer       
 
         self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
 
-        # self.get_logger().info("pose_x = " + str(self.x) 
-        #                        + " pose_y = " + str(self.y) 
-        #                        + " orientation_z = " + str(self.yaw))
+        self.get_logger().info("pose_x = " + str(self.x0[0]) 
+                               + " pose_y = " + str(self.x0[1]) 
+                               + " orientation_z = " + str(self.x0[3]) + "  " + str(self.planner.completion))
     
     def callbackJoy(self, msg: Joy):
         self.Joy7 = msg.buttons[7]
@@ -109,7 +108,7 @@ class PurePursuit():
         self.ego_index = None
         self.Tindx = None
 
-        self.v_gain = 0.1                 #change this parameter for different tracks 
+        self.v_gain = 0.3                 #change this parameter for different tracks 
         self.lfd = 1.0  
 
     def distanceCalc(self,x, y, tx, ty):     #tx = target x, ty = target y
@@ -199,11 +198,12 @@ class PurePursuit():
         return indx, trackErr, self.speed, steering_angle
 
 class dataSave:
-    def __init__(self, TESTMODE, map_name,max_iter):
+    def __init__(self, TESTMODE, map_name,max_iter, speedgain):
         self.rowSize = 50000
         self.stateCounter = 0
         self.lapInfoCounter = 0
         self.TESTMODE = TESTMODE
+        self.speedgain = speedgain
         self.map_name = map_name
         self.max_iter = max_iter
         self.txt_x0 = np.zeros((self.rowSize,8))
@@ -224,7 +224,7 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,8))
         self.stateCounter = 0
@@ -244,7 +244,7 @@ class dataSave:
     def saveLapInfo(self):
         var1 = "NA"
         var2 = "NA"
-        np.savetxt(f"csv/PP_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        np.savetxt(f"csv/PP_{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 

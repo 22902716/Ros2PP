@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-
 #import necessary classes
 import rclpy
 from rclpy.node import Node
