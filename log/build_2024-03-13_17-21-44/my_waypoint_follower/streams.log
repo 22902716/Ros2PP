@@ -1,0 +1,23 @@
+[3.980s] Invoking command in '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower': PYTHONPATH=/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build --no-deps install_data
+[4.324s] running develop
+[4.613s] running egg_info
+[4.614s] writing my_waypoint_follower.egg-info/PKG-INFO
+[4.614s] writing dependency_links to my_waypoint_follower.egg-info/dependency_links.txt
+[4.614s] writing entry points to my_waypoint_follower.egg-info/entry_points.txt
+[4.615s] writing requirements to my_waypoint_follower.egg-info/requires.txt
+[4.615s] writing top-level names to my_waypoint_follower.egg-info/top_level.txt
+[4.717s] reading manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'
+[4.752s] writing manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'
+[4.812s] running build_ext
+[4.855s] Creating /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my-waypoint-follower.egg-link (link to .)
+[4.862s] Installing MPCC_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[4.862s] Installing MPC_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[4.862s] Installing MPC_ros_tuning script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[4.862s] Installing Opt_MPC script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[4.862s] Installing Opt_MPCC script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[4.863s] Installing Opt_PurePursuit script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[4.863s] Installing purePursuit_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[4.863s] 
+[4.863s] Installed /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower
+[4.863s] running install_data
+[4.897s] Invoked command in '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower' returned '0': PYTHONPATH=/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build --no-deps install_data

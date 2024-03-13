@@ -33,7 +33,7 @@ class PoseSubscriberNode (Node):
 
     def callback(self, msg: Odometry):
 
-        lapsuccess = 0 if self.planner.completion<99 else 1
+        lapsuccess = 0 if self.planner.completion<50 else 1
         laptime = time.time() - self.start_laptime
         self.cmd_current_timer = time.perf_counter()
         #self.get_logger().info("in callback")       
@@ -57,7 +57,7 @@ class PoseSubscriberNode (Node):
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
 
-        if self.planner.completion >= 60:
+        if self.planner.completion >= 50:
             self.get_logger().info("I finished running the lap")
             self.ds.lapInfo(1, lapsuccess, laptime, self.planner.completion, self.planner.v_gain, self.planner.lfd, laptime)
             self.get_logger().info("Lap info csv saved")

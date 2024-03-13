@@ -1,0 +1,84 @@
+[0.000000] (-) TimerEvent: {}
+[0.000548] (my_waypoint_follower) JobQueued: {'identifier': 'my_waypoint_follower', 'dependencies': OrderedDict()}
+[0.000746] (my_waypoint_follower) JobStarted: {'identifier': 'my_waypoint_follower'}
+[0.099764] (-) TimerEvent: {}
+[0.201081] (-) TimerEvent: {}
+[0.301793] (-) TimerEvent: {}
+[0.402409] (-) TimerEvent: {}
+[0.503881] (-) TimerEvent: {}
+[0.604612] (-) TimerEvent: {}
+[0.706190] (-) TimerEvent: {}
+[0.807146] (-) TimerEvent: {}
+[0.908274] (-) TimerEvent: {}
+[1.008718] (-) TimerEvent: {}
+[1.109014] (-) TimerEvent: {}
+[1.209367] (-) TimerEvent: {}
+[1.310072] (-) TimerEvent: {}
+[1.410391] (-) TimerEvent: {}
+[1.511271] (-) TimerEvent: {}
+[1.612060] (-) TimerEvent: {}
+[1.712818] (-) TimerEvent: {}
+[1.813181] (-) TimerEvent: {}
+[1.913634] (-) TimerEvent: {}
+[2.014273] (-) TimerEvent: {}
+[2.114564] (-) TimerEvent: {}
+[2.215051] (-) TimerEvent: {}
+[2.315497] (-) TimerEvent: {}
+[2.415860] (-) TimerEvent: {}
+[2.516207] (-) TimerEvent: {}
+[2.616516] (-) TimerEvent: {}
+[2.716866] (-) TimerEvent: {}
+[2.817440] (-) TimerEvent: {}
+[2.918107] (-) TimerEvent: {}
+[3.018717] (-) TimerEvent: {}
+[3.119122] (-) TimerEvent: {}
+[3.219570] (-) TimerEvent: {}
+[3.320225] (-) TimerEvent: {}
+[3.420605] (-) TimerEvent: {}
+[3.521021] (-) TimerEvent: {}
+[3.621437] (-) TimerEvent: {}
+[3.721919] (-) TimerEvent: {}
+[3.822397] (-) TimerEvent: {}
+[3.922848] (-) TimerEvent: {}
+[3.977871] (my_waypoint_follower) Command: {'cmd': ['/usr/bin/python3', 'setup.py', 'develop', '--editable', '--build-directory', '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/build', '--no-deps', 'install_data'], 'cwd': '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower', 'env': {'GJS_DEBUG_TOPICS': 'JS ERROR;JS LOG', 'LESSOPEN': '| /usr/bin/lesspipe %s', 'LANGUAGE': 'en_US:en', 'USER': 'yiminglinux', 'LC_TIME': 'en_US.UTF-8', 'SSH_AGENT_PID': '2681', 'XDG_SESSION_TYPE': 'x11', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/opt/ros/foxy/opt/yaml_cpp_vendor/lib:/opt/ros/foxy/opt/rviz_ogre_vendor/lib:/opt/ros/foxy/lib/x86_64-linux-gnu:/opt/ros/foxy/lib', 'HOME': '/home/yiminglinux', 'OLDPWD': '/home/yiminglinux/Documents/Ros2PP/src/my_waypoint_follower/my_waypoint_follower', 'DESKTOP_SESSION': 'ubuntu', 'GIO_LAUNCHED_DESKTOP_FILE': '/usr/share/applications/terminator.desktop', 'ROS_PYTHON_VERSION': '3', 'GNOME_SHELL_SESSION_MODE': 'ubuntu', 'GTK_MODULES': 'gail:atk-bridge', 'LC_MONETARY': 'en_US.UTF-8', 'MANAGERPID': '2248', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'COLORTERM': 'truecolor', 'TERMINATOR_DBUS_NAME': 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873', 'GIO_LAUNCHED_DESKTOP_FILE_PID': '2839028', 'MANDATORY_PATH': '/usr/share/gconf/ubuntu.mandatory.path', 'IM_CONFIG_PHASE': '1', 'COLCON_PREFIX_PATH': '/home/yiminglinux/Documents/Ros2PP/install', 'ROS_DISTRO': 'foxy', 'LOGNAME': 'yiminglinux', 'JOURNAL_STREAM': '8:48113', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'XDG_SESSION_CLASS': 'user', 'DEFAULTS_PATH': '/usr/share/gconf/ubuntu.default.path', 'USERNAME': 'yiminglinux', 'TERM': 'xterm-256color', 'GNOME_DESKTOP_SESSION_ID': 'this-is-deprecated', 'ROS_LOCALHOST_ONLY': '0', 'WINDOWPATH': '2', 'PATH': '/opt/ros/foxy/bin:/home/yiminglinux/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin', 'SESSION_MANAGER': 'local/yiminglinux-OptiPlex-7050:@/tmp/.ICE-unix/2719,unix/yiminglinux-OptiPlex-7050:/tmp/.ICE-unix/2719', 'INVOCATION_ID': 'e40d10eae8724ed0be978681435c3078', 'PAPERSIZE': 'letter', 'XDG_MENU_PREFIX': 'gnome-', 'LC_ADDRESS': 'en_US.UTF-8', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'TERMINATOR_DBUS_PATH': '/net/tenshu/Terminator2', 'LANG': 'en_US.UTF-8', 'XDG_CURRENT_DESKTOP': 'ubuntu:GNOME', 'LC_TELEPHONE': 'en_US.UTF-8', 'XMODIFIERS': '@im=ibus', 'XDG_SESSION_DESKTOP': 'ubuntu', 'XAUTHORITY': '/run/user/1000/gdm/Xauthority', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:', 'SSH_AUTH_SOCK': '/run/user/1000/keyring/ssh', 'AMENT_PREFIX_PATH': '/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower:/opt/ros/foxy', 'SHELL': '/bin/bash', 'LC_NAME': 'en_US.UTF-8', 'TERMINATOR_UUID': 'urn:uuid:21984f49-987d-4c38-a335-8804d121ebd8', 'QT_ACCESSIBILITY': '1', 'GDMSESSION': 'ubuntu', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'LC_MEASUREMENT': 'en_US.UTF-8', 'GPG_AGENT_INFO': '/run/user/1000/gnupg/S.gpg-agent:0:1', 'GJS_DEBUG_OUTPUT': 'stderr', 'LC_IDENTIFICATION': 'en_US.UTF-8', 'QT_IM_MODULE': 'ibus', 'PWD': '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower', 'LC_ALL': 'en_US.UTF-8', 'XDG_CONFIG_DIRS': '/etc/xdg/xdg-ubuntu:/etc/xdg', 'XDG_DATA_DIRS': '/usr/share/ubuntu:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:/home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower:/home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:/opt/ros/foxy/lib/python3.8/site-packages', 'LC_NUMERIC': 'en_US.UTF-8', 'LC_PAPER': 'en_US.UTF-8', 'COLCON': '1', 'VTE_VERSION': '6003'}, 'shell': False}
+[4.023116] (-) TimerEvent: {}
+[4.123770] (-) TimerEvent: {}
+[4.224007] (-) TimerEvent: {}
+[4.323977] (my_waypoint_follower) StdoutLine: {'line': b'running develop\n'}
+[4.324458] (-) TimerEvent: {}
+[4.424734] (-) TimerEvent: {}
+[4.525147] (-) TimerEvent: {}
+[4.613951] (my_waypoint_follower) StdoutLine: {'line': b'running egg_info\n'}
+[4.614263] (my_waypoint_follower) StdoutLine: {'line': b'writing my_waypoint_follower.egg-info/PKG-INFO\n'}
+[4.614680] (my_waypoint_follower) StdoutLine: {'line': b'writing dependency_links to my_waypoint_follower.egg-info/dependency_links.txt\n'}
+[4.615063] (my_waypoint_follower) StdoutLine: {'line': b'writing entry points to my_waypoint_follower.egg-info/entry_points.txt\n'}
+[4.615247] (my_waypoint_follower) StdoutLine: {'line': b'writing requirements to my_waypoint_follower.egg-info/requires.txt\n'}
+[4.615403] (my_waypoint_follower) StdoutLine: {'line': b'writing top-level names to my_waypoint_follower.egg-info/top_level.txt\n'}
+[4.625247] (-) TimerEvent: {}
+[4.717812] (my_waypoint_follower) StdoutLine: {'line': b"reading manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'\n"}
+[4.725325] (-) TimerEvent: {}
+[4.752984] (my_waypoint_follower) StdoutLine: {'line': b"writing manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'\n"}
+[4.812613] (my_waypoint_follower) StdoutLine: {'line': b'running build_ext\n'}
+[4.825474] (-) TimerEvent: {}
+[4.856175] (my_waypoint_follower) StdoutLine: {'line': b'Creating /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my-waypoint-follower.egg-link (link to .)\n'}
+[4.862603] (my_waypoint_follower) StdoutLine: {'line': b'Installing MPCC_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower\n'}
+[4.862826] (my_waypoint_follower) StdoutLine: {'line': b'Installing MPC_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower\n'}
+[4.862941] (my_waypoint_follower) StdoutLine: {'line': b'Installing MPC_ros_tuning script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower\n'}
+[4.863047] (my_waypoint_follower) StdoutLine: {'line': b'Installing Opt_MPC script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower\n'}
+[4.863152] (my_waypoint_follower) StdoutLine: {'line': b'Installing Opt_MPCC script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower\n'}
+[4.863255] (my_waypoint_follower) StdoutLine: {'line': b'Installing Opt_PurePursuit script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower\n'}
+[4.863359] (my_waypoint_follower) StdoutLine: {'line': b'Installing purePursuit_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower\n'}
+[4.863462] (my_waypoint_follower) StdoutLine: {'line': b'\n'}
+[4.863565] (my_waypoint_follower) StdoutLine: {'line': b'Installed /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower\n'}
+[4.863673] (my_waypoint_follower) StdoutLine: {'line': b'running install_data\n'}
+[4.897295] (my_waypoint_follower) CommandEnded: {'returncode': 0}
+[4.925716] (-) TimerEvent: {}
+[5.026443] (-) TimerEvent: {}
+[5.128037] (-) TimerEvent: {}
+[5.228559] (-) TimerEvent: {}
+[5.329573] (-) TimerEvent: {}
+[5.430127] (-) TimerEvent: {}
+[5.531342] (-) TimerEvent: {}
+[5.631641] (-) TimerEvent: {}
+[5.677707] (my_waypoint_follower) JobEnded: {'identifier': 'my_waypoint_follower', 'rc': 0}
+[5.681755] (-) EventReactorShutdown: {}

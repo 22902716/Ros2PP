@@ -8,10 +8,13 @@ setup.py
 ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/requires.txt
 ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/top_level.txt
 ../../build/my_waypoint_follower/my_waypoint_follower.egg-info/zip-safe
+my_waypoint_follower/MPCC_ros.py
 my_waypoint_follower/MPC_ros.py
 my_waypoint_follower/MPC_ros_tuning.py
+my_waypoint_follower/Opt_MPCC_ros.py
 my_waypoint_follower/Opt_MPC_ros.py
 my_waypoint_follower/Opt_purePursuit_ros.py
+my_waypoint_follower/ReferencePath.py
 my_waypoint_follower/__init__.py
 my_waypoint_follower/graph_plot.py
 my_waypoint_follower/purePursuit_ros.py

@@ -246,7 +246,7 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/PP_{self.map_name}_{self.TESTMODE}_{str(iter)}_ros.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,8))
         self.stateCounter = 0

@@ -25,10 +25,10 @@ class MPCCControllerNode (Node):
 
         #initialise position vectors 
         self.x0 = [0.0] * 4         #x_pos, y_pos, yaw, speed 
-        self.speedgain = 0.9
+        self.speedgain = 1.
         self.iter = 0
 
-        self.planner = MPCC(mapname)
+        self.planner = MPCC(mapname,"Benchmark")
         self.ds = dataSave("ros_rviz", mapname, max_iter)
         self.cmd_start_timer = time.perf_counter()
 
@@ -49,18 +49,19 @@ class MPCCControllerNode (Node):
         self.ori_x = [msg.pose.pose.orientation.x,
                       msg.pose.pose.orientation.y,
                       msg.pose.pose.orientation.z,
-                      
                       msg.pose.pose.orientation.w]
+        
         self.yaw = self.planner.euler_from_quaternion(self.ori_x[0],
                                               self.ori_x[1],
                                               self.ori_x[2],
                                               self.ori_x[3])
         self.x0 = [msg.pose.pose.position.x,
                    msg.pose.pose.position.y,
-                   self.yaw,
-                   msg.twist.twist.linear.x]
+                   self.yaw
+                   ]
+        speed = msg.twist.twist.linear.x
 
-        indx, trackErr,speed,steering = self.planner.plan(self.x0)
+        indx, trackErr,speed,steering, slip = self.planner.plan(self.x0,laptime, speed)
         # self.get_logger().info("i planned")
         
         cmd.drive.speed = speed*self.speedgain
@@ -75,9 +76,10 @@ class MPCCControllerNode (Node):
         #                        + "cur_y = " + str(self.y)
         #                        + " tar_x = " + str(self.points[self.ego_index][0])
         #                        + "tar_y = " + str(self.points[self.ego_index][1]))
-        self.get_logger().info(str(self.x0[3]))
+        # self.get_logger().info(str(self.planner.X0_slip[3]))
+        self.get_logger().info(str(self.planner.completion))
 
-        if self.planner.completion >= 99:
+        if self.planner.completion >= 90:
             
             self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
             self.get_logger().info("Lap info csv saved")
@@ -94,7 +96,7 @@ class MPCCControllerNode (Node):
 
 
 
-        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
+        # self.ds.saveStates(laptime, self.x0, 0, 0, 0, self.planner.completion, steering, slip)
 
 
         # self.get_logger().info("pose_x = " + str(self.x) + " pose_y = " + str(self.y) + " orientation_z = " + str(self.yaw))
@@ -134,21 +136,16 @@ class MPCC:
         self.load_waypoints()
         self.scale = 0.
 
-        if self.TESTMODE == "Benchmark" or self.TESTMODE == " ": 
-            self.Max_iter= 5           
-        elif self.TESTMODE == "perception_noise" or self.TESTMODE == "Outputnoise_speed" or self.TESTMODE == "Outputnoise_steering":
-            self.Max_iter = 300
-        elif self.TESTMODE == "control_delay_speed" or self.TESTMODE == "control_Delay_steering" or self.TESTMODE == "perception_delay":
-            self.Max_iter = 10
+        if self.TESTMODE == "Benchmark":
+            self.Max_iter= 1           
+        
 
         self.ds = dataSave(TESTMODE, map_name, self.Max_iter)
 
         #adjustable params
         #----------------------
-        if map_name == "mco":
-            self.dt = 0.17
-        else:
-            self.dt = 0.16
+
+        self.dt = 0.25
         self.N = 5  #prediction horizon
         self.mass = 3.8
         self.L = 0.324
@@ -163,9 +160,9 @@ class MPCC:
         self.psi_min = -10
         self.psi_max = 10
 
-        self.weight_progress = 100
+        self.weight_progress = 10
         self.weight_lag = 1000
-        self.weight_contour = 0.1
+        self.weight_contour = 10
         self.weight_steering = 1.5
 
         self.v_min = 2 
@@ -188,6 +185,7 @@ class MPCC:
         self.prev_x0 = [0.0,0.0,0.0]
 
         self.drawn_waypoints = []
+        self.completion = 0.0
 
         self.problem_setup()
 
@@ -201,9 +199,17 @@ class MPCC:
         # exit()
         self.centerline = np.loadtxt('./maps/'+ self.map_name +'_centerline.csv', delimiter=",")
         self.wpts = np.vstack((self.centerline[:,0],self.centerline[:,1])).T
-        self.waypoints = np.loadtxt('./maps/'+ self.map_name +'_raceline.csv', delimiter=",")
+        # self.waypoints = np.loadtxt('./maps/'+ self.map_name +'_raceline.csv', delimiter=",")
 
         #track_lu_table_heading = ['sval', 'tval', 'xtrack', 'ytrack', 'phitrack', 'cos(phi)', 'sin(phi)', 'g_upper', 'g_lower']
+
+    def euler_from_quaternion(self,x, y, z, w):  
+     
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = math.atan2(t3, t4)
+     
+        return yaw_z # in radians
 
     def get_trackline_segment(self, point):
         """
@@ -219,11 +225,11 @@ class MPCC:
         return min_dist_segment,dists
         
 
-    def plan(self, obs,laptime):
+    def plan(self, x0,laptime, speed):
         # lower case x0: [x,y,psi,states]
         # upper case X0: [x,y,psi,speed]
 
-        x0, self.X0_slip = self.inputStateAdust(obs)
+        x0, self.X0_slip = self.inputStateAdust(x0, speed)
         x0 = self.build_initial_state(x0)
         self.construct_warm_start_soln(x0) 
 
@@ -231,21 +237,21 @@ class MPCC:
         controls,self.x_bar = self.solve(p)
 
         action = np.array([controls[0, 0], controls[0,1]])
-        speed,steering = self.outputActionAdjust(action[1],action[0])
+        speed,steering = action[1],action[0]
 
-        ego_index,min_dists = self.get_trackline_segment(x0[0:2])
-        self.completion = 100 if ego_index/len(self.wpts) == 0 else round(ego_index/len(self.wpts)*100,2)
-        slip_angle = self.slipAngleCalc(obs)
+        ego_index,_ = self.get_trackline_segment(x0[0:2])
+        self.completion = round(ego_index/len(self.wpts)*100,2)
+        slip_angle = self.slipAngleCalc(x0)
         self.ds.saveStates(laptime, self.X0_slip, 0.0, 0.0, 0.0, self.completion, steering, slip_angle)
 
-        return speed,steering
+        return ego_index, 0, speed,steering, slip_angle
     
-    def slipAngleCalc(self,obs):
+    def slipAngleCalc(self, x0):
         x = [self.X0_slip[0] - self.prev_x0[0]]
         y = [self.X0_slip[1] - self.prev_x0[1]]
         
         velocity_dir = np.arctan2(y,x)
-        slip = np.abs(velocity_dir[0] - obs['poses_theta'][0]) *360 / (2*np.pi)
+        slip = np.abs(velocity_dir[0] - x0[2]) *360 / (2*np.pi)
         if slip > 180:
             slip = slip-360
 
@@ -406,16 +412,9 @@ class MPCC:
 
         # self.realTimePlot(self.x_bar, self.X0)
 
-    def inputStateAdust(self,obs):
+    def inputStateAdust(self,x0, speed):
 
-        if self.reset:
-            x0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0]]
-            self.prev_x0 = [0.0,0.0,0.0]
-            self.reset = 0
-        else:
-            x0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0]]
-
-        X0_slip = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], obs['linear_vels_x'][0]]
+        X0_slip = [x0[0],x0[1],x0[2], speed]
 
         return x0, X0_slip
 
@@ -451,14 +450,14 @@ class dataSave:
         self.txt_x0[self.stateCounter,8] = steering
         self.txt_x0[self.stateCounter,9] = slip_angle
         self.stateCounter += 1
-        #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise
+        #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise, completion, steering, slip_angle
 
     def savefile(self, iter):
         for i in range(self.rowSize):
             if (self.txt_x0[i+2,0] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i+2,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/MPCC_{self.map_name}_{self.TESTMODE}_{str(iter)}_ros.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,10))
         self.stateCounter = 0
@@ -478,7 +477,7 @@ class dataSave:
     def saveLapInfo(self):
         var1 = "NA"
         var2 = "NA"
-        np.savetxt(f"csv/MPC_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        np.savetxt(f"csv/MPCC_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 
@@ -509,6 +508,10 @@ def main(args = None):
 
     rclpy.spin(MPCC_controller_node)          #allows the node to always been running 
     rclpy.shutdown()                    #shut dowwn the node
+
+
+if __name__ == "__main__":
+    main()
 
 #_________________________________________________________________________________________________________________________
     

@@ -1,0 +1,21 @@
+running develop
+running egg_info
+writing my_waypoint_follower.egg-info/PKG-INFO
+writing dependency_links to my_waypoint_follower.egg-info/dependency_links.txt
+writing entry points to my_waypoint_follower.egg-info/entry_points.txt
+writing requirements to my_waypoint_follower.egg-info/requires.txt
+writing top-level names to my_waypoint_follower.egg-info/top_level.txt
+reading manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'
+writing manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my-waypoint-follower.egg-link (link to .)
+Installing MPCC_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+Installing MPC_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+Installing MPC_ros_tuning script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+Installing Opt_MPC script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+Installing Opt_MPCC script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+Installing Opt_PurePursuit script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+Installing purePursuit_ros script to /home/yiminglinux/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+
+Installed /home/yiminglinux/Documents/Ros2PP/build/my_waypoint_follower
+running install_data

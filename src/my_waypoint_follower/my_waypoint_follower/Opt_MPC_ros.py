@@ -35,7 +35,7 @@ class MPCNode (Node):
     
     def callback(self, msg: Odometry):
 
-        lapsuccess = 0 if self.planner.completion<99 else 1
+        lapsuccess = 0 if self.planner.completion<50 else 1
         laptime = time.time() - self.start_laptime
         self.cmd_current_timer = time.perf_counter()
         #self.get_logger().info("in callback")       
@@ -59,7 +59,7 @@ class MPCNode (Node):
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
 
-        if self.planner.completion >= 55:
+        if self.planner.completion >= 50:
             self.get_logger().info("I finished running the lap")
             self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
             self.get_logger().info("Lap info csv saved")
@@ -69,7 +69,7 @@ class MPCNode (Node):
             self.ds.saveLapInfo()
             rclpy.shutdown()    
         else:
-            if self.cmd_current_timer - self.cmd_start_timer >= 0.02:
+            if self.cmd_current_timer - self.cmd_start_timer >= 0.001:
                 if self.Joy7 == 1:
                 	# self.get_logger().info("controller active")
                     self.drive_pub.publish(cmd)
