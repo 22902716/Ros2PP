@@ -28,10 +28,10 @@ class MPCCControllerNode (Node):
 
         #initialise position vectors 
         self.x0 = [0.0] * 4         #x_pos, y_pos, yaw, speed 
-        self.speedgain = 0.2
+        self.speedgain = 0.3
         self.iter = 0
 
-        self.planner = MPCC(mapname,"Benchmark")
+        self.planner = MPCC(mapname,"Benchmark", self.speedgain)
         self.ds = dataSave("ros_Car", mapname, max_iter, self.speedgain)
         self.get_logger().info("initialised")
 
@@ -42,6 +42,7 @@ class MPCCControllerNode (Node):
             self.is_start = 1
             self.is_in = 0
             self.start_laptime = time.time() #come back to this put this somewhere else
+            self.cmd_start_timer = time.time()
 
         cmd = AckermannDriveStamped()
         lapsuccess = 0 if self.planner.completion<50 else 1
@@ -65,7 +66,7 @@ class MPCCControllerNode (Node):
         speed = msg.twist.twist.linear.x
 
         indx, trackErr,speed,steering, slip = self.planner.plan(self.x0,laptime, speed)
-        # self.get_logger().info("i planned")
+        self.get_logger().info("speed = " + str(self.speedgain*speed) + "steering = " + str(steering))
         
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
@@ -88,14 +89,15 @@ class MPCCControllerNode (Node):
             self.get_logger().info("Lap info csv saved")
             self.ds.savefile(self.iter)
             self.get_logger().info("States for the lap saved")
-            self.ego_reset_stop()
             self.ds.saveLapInfo()
             rclpy.shutdown()     
         else:
-            if self.cmd_current_timer - self.cmd_start_timer >= 0.001:
+            if self.planner.completion <= 1000:
                 if self.Joy7 == 1:
-                	# self.get_logger().info("controller active")
+               
+                	#self.get_logger().info("controller active")
                     self.drive_pub.publish(cmd)
+                    self.get_logger().info("controller active")
                 else:
                 	# self.get_logger().info("controller inactive")
                     cmd.drive.speed = 0.0
@@ -117,7 +119,7 @@ class MPCCControllerNode (Node):
 
 
 class MPCC:
-    def __init__(self, map_name,TESTMODE):
+    def __init__(self, map_name,TESTMODE, speedgain):
         print("This is Fast MPCC TEST")
         self.nx = 4 #number of input [x, y, psi, s]
         self.nu = 3 #number of output [delta, v, p],steering(change in yaw angle), change in reference path progress and acceleration
@@ -132,12 +134,12 @@ class MPCC:
             self.Max_iter= 1           
         
 
-        self.ds = dataSave(TESTMODE, map_name, self.Max_iter)
+        self.ds = dataSave(TESTMODE, map_name, self.Max_iter, speedgain)
 
         #adjustable params
         #----------------------
 
-        self.dt = 0.25
+        self.dt = 0.15
         self.N = 5  #prediction horizon
         self.mass = 3.8
         self.L = 0.324
@@ -228,7 +230,7 @@ class MPCC:
         p = self.generate_parameters(x0,self.X0_slip[3])
         controls,self.x_bar = self.solve(p)
 
-        action = np.array([controls[0, 0], controls[0,1]])
+        action = np.array([controls[1, 0], controls[1,1]])
         speed,steering = action[1],action[0]
 
         ego_index,_ = self.get_trackline_segment(x0[0:2])
@@ -422,7 +424,7 @@ class MPCC:
 
 
 class dataSave:
-    def __init__(self, TESTMODE, map_name,max_iter):
+    def __init__(self, TESTMODE, map_name,max_iter, speedgain):
         self.rowSize = 50000
         self.stateCounter = 0
         self.lapInfoCounter = 0
@@ -431,6 +433,8 @@ class dataSave:
         self.max_iter = max_iter
         self.txt_x0 = np.zeros((self.rowSize,10))
         self.txt_lapInfo = np.zeros((max_iter,8))
+        self.speedgain = speedgain
+        self.speedgain_txt = str(speedgain)
 
     def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion, steering, slip_angle):
         self.txt_x0[self.stateCounter,0] = time
@@ -449,7 +453,7 @@ class dataSave:
             if (self.txt_x0[i+2,0] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i+2,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/MPCC_{self.map_name}_{self.TESTMODE}_{str(iter)}_car.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/MPCC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}_car.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,10))
         self.stateCounter = 0
@@ -469,7 +473,7 @@ class dataSave:
     def saveLapInfo(self):
         var1 = "NA"
         var2 = "NA"
-        np.savetxt(f"csv/MPCC_{self.map_name}_{self.TESTMODE}_car.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        np.savetxt(f"csv/MPCC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}_car.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 

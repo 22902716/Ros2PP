@@ -20,7 +20,7 @@ class MPCNode (Node):
         self.speedgain = 0.2
 
         self.planner = MPC(mapname)
-        self.ds = dataSave("ros_Car", mapname, max_iter)
+        self.ds = dataSave("ros_Car", mapname, max_iter, self.speedgain)
         
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
         self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
@@ -31,6 +31,7 @@ class MPCNode (Node):
         self.cmd_start_timer = time.perf_counter()
         self.get_logger().info("initialised")
         self.start_laptime = time.time()
+        self.prev_x0 = [0.0,0.0,0.0,0.0]
 
     
     def callback(self, msg: Odometry):
@@ -58,6 +59,7 @@ class MPCNode (Node):
         indx, trackErr, speed, steering = self.planner.plan(self.x0)
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
+        self.get_logger().info("speed = " + str(self.speedgain*speed) + "steering = " + str(steering))
 
         if self.planner.completion >= 50:
             self.get_logger().info("I finished running the lap")
@@ -80,8 +82,9 @@ class MPCNode (Node):
                     self.drive_pub.publish(cmd)
                 # self.get_logger().info("i published")
                 self.cmd_start_timer = self.cmd_current_timer       
-
-        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
+        slip = self.slipAngleCalc(self.x0)
+	
+        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion, steering, slip)
 
         # self.get_logger().info("pose_x = " + str(self.x) 
         #                        + " pose_y = " + str(self.y) 
@@ -89,6 +92,19 @@ class MPCNode (Node):
 
     def callbackJoy(self, msg: Joy):
         self.Joy7 = msg.buttons[7]
+        
+    def slipAngleCalc(self, x0):
+        x = [x0[0] - self.prev_x0[0]]
+        y = [x0[1] - self.prev_x0[1]]
+        
+        velocity_dir = np.arctan2(y,x)
+        slip = np.abs(velocity_dir[0] - x0[2]) *360 / (2*np.pi)
+        if slip > 180:
+            slip = slip-360
+
+        self.prev_x0 = x0
+
+        return slip
 
     def euler_from_quaternion(self,x, y, z, w):  
      
@@ -254,9 +270,9 @@ class MPC():
         # self.completion = 100 if ego_index/len(self.wpts) == 0 else round(ego_index/len(self.wpts)*100,2)
         self.completion = round(ego_index/len(self.wpts)*100,2)        
         _,trackErr = self.interp_pts(ego_index, min_dists)
-        speed = x0[3] + u_bar[0][1]*self.dt
+        speed = x0[3] + u_bar[1][1]*self.dt
 
-        return ego_index, trackErr, speed, u_bar[0][0] # return the first control action
+        return ego_index, trackErr, speed, u_bar[1][0] # return the first control action
         
     def generate_optimal_path(self, x0_in, x_ref, u_init):
         """generates a set of optimal control inputs (and resulting states) for an initial position, reference trajectory and estimated control
@@ -330,23 +346,27 @@ class MPC():
         return xdot
 #_________________________________________________________________________________________________________________________________________
 class dataSave:
-    def __init__(self, TESTMODE, map_name,max_iter):
+    def __init__(self, TESTMODE, map_name,max_iter, speedgain):
         self.rowSize = 50000
         self.stateCounter = 0
         self.lapInfoCounter = 0
         self.TESTMODE = TESTMODE
         self.map_name = map_name
         self.max_iter = max_iter
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,10))
         self.txt_lapInfo = np.zeros((max_iter,8))
+        self.speedgain = speedgain
+        self.speedgain_txt = speedgain
 
-    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
+    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion, steering, slip):
         self.txt_x0[self.stateCounter,0] = time
         self.txt_x0[self.stateCounter,1:4] = [x0[0],x0[1],x0[3]]
         self.txt_x0[self.stateCounter,4] = expected_speed
         self.txt_x0[self.stateCounter,5] = tracking_error
         self.txt_x0[self.stateCounter,6] = noise
         self.txt_x0[self.stateCounter,7] = completion
+        self.txt_x0[self.stateCounter,8] = steering
+        self.txt_x0[self.stateCounter,9] = slip
         self.stateCounter += 1
         #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise
 
@@ -355,9 +375,9 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,10))
         self.stateCounter = 0
     
     def lapInfo(self,lap_count, lap_success, laptime, completion, var1, var2, Computation_time):
@@ -375,7 +395,7 @@ class dataSave:
     def saveLapInfo(self):
         var1 = "NA"
         var2 = "NA"
-        np.savetxt(f"csv/MPC_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        np.savetxt(f"csv/MPC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 
