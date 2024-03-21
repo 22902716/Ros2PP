@@ -27,16 +27,14 @@ class MPCControllerNode (Node):
         self.ego_reset_pub = self.create_publisher(PoseWithCovarianceStamped, '/initialpose', 10)
 
         #initialise position vectors 
-        self.x0 = [0.0] * 4         #x_pos, y_pos, yaw, speed 
-        self.speedgain = 0.9
+        self.x0 = [0.1] * 4         #x_pos, y_pos, yaw, speed 
+        self.speedgain = 1.
         self.iter = 0
 
         self.planner = MPC(mapname)
         self.ds = dataSave("ros_rviz", mapname, max_iter)
         self.cmd_start_timer = time.perf_counter()
 
-
-    
     def callback(self, msg: Odometry):
 
         if self.is_start == None:
@@ -54,8 +52,8 @@ class MPCControllerNode (Node):
         self.ori_x = [msg.pose.pose.orientation.x,
                       msg.pose.pose.orientation.y,
                       msg.pose.pose.orientation.z,
-                      
                       msg.pose.pose.orientation.w]
+
         self.yaw = self.planner.euler_from_quaternion(self.ori_x[0],
                                               self.ori_x[1],
                                               self.ori_x[2],
@@ -64,9 +62,18 @@ class MPCControllerNode (Node):
                    msg.pose.pose.position.y,
                    self.yaw,
                    msg.twist.twist.linear.x]
+        
+        if self.x0[0] == 0.0: 
+            self.x0[0] = 0.001
+        if self.x0[1] == 0.0: 
+            self.x0[1] = 0.001
+        if self.x0[2] <= 0.001 and self.x0[2] >= -0.001:
+            self.get_logger().info(str(self.x0[2]))
+            self.x0[2]= 0.001
 
-        indx, trackErr,speed,steering = self.planner.plan(self.x0)
+        indx, trackErr,speed,steering, x_bar, x_ref,u_bar = self.planner.plan(self.x0)
         # self.get_logger().info("i planned")
+        self.get_logger().info(str(u_bar))
         
         cmd.drive.speed = speed*self.speedgain
         cmd.drive.steering_angle = steering
@@ -80,7 +87,7 @@ class MPCControllerNode (Node):
         #                        + "cur_y = " + str(self.y)
         #                        + " tar_x = " + str(self.points[self.ego_index][0])
         #                        + "tar_y = " + str(self.points[self.ego_index][1]))
-        self.get_logger().info(str(self.x0[3]))
+        
 
         if self.planner.completion >= 99:
             
@@ -98,7 +105,7 @@ class MPCControllerNode (Node):
                 self.cmd_start_timer = self.cmd_current_timer
 
 
-
+        self.ds.saveOptimisation(self.x0, x_bar, x_ref)
         self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
 
 
@@ -106,10 +113,10 @@ class MPCControllerNode (Node):
                 
     def ego_reset_stop(self):
         msg = PoseWithCovarianceStamped()
-        msg.pose.pose.position.x = 0.0 
-        msg.pose.pose.position.y = 0.0
+        msg.pose.pose.position.x = 0.1 
+        msg.pose.pose.position.y = 0.1
 
-        msg.pose.pose.orientation.x = 0.0
+        msg.pose.pose.orientation.x = 0.1
         msg.pose.pose.orientation.y = 0.0
         msg.pose.pose.orientation.z = 0.0
         msg.pose.pose.orientation.w = 1.0
@@ -145,7 +152,6 @@ class MPC():
         self.dt_gain = 0.02         #tune these two parameters before running
         self.dt_constant = 0.08
 
-
     def load_waypoints(self,mapname):
         """
         loads waypoints
@@ -167,7 +173,6 @@ class MPC():
 
         self.total_s = self.ss[-1]
 
-
     def euler_from_quaternion(self,x, y, z, w):  
 
         t3 = +2.0 * (w * z + x * y)
@@ -176,7 +181,6 @@ class MPC():
      
         return yaw_z # in radians
     
-
     def get_timed_trajectory_segment(self, position, dt, n_pts=10):
         pose = np.array([position[0], position[1], position[3]])
         trajectory, distances = [pose], [0]
@@ -263,6 +267,9 @@ class MPC():
 
         
         speeds = reference_path[:, 2]
+        for i in range(len(reference_path)):
+            if reference_path[i][2] == 0.0:
+                reference_path[i][2] = 0.1
         steering_angles = (np.arctan(th_dot) * self.L / speeds[:-2]) / self.dt
 
         speeds[0] += (x0[3] - reference_path[0, 2] )
@@ -286,7 +293,7 @@ class MPC():
         _,trackErr = self.interp_pts(ego_index, min_dists)
         speed = x0[3] + u_bar[0][1]*self.dt
 
-        return ego_index, trackErr, speed, u_bar[0][0] # return the first control action
+        return ego_index, trackErr, speed, u_bar[0][0], x_bar, reference_path, u_bar # return the first control action
         
     def generate_optimal_path(self, x0_in, x_ref, u_init):
         """generates a set of optimal control inputs (and resulting states) for an initial position, reference trajectory and estimated control
@@ -361,14 +368,23 @@ class MPC():
 #_________________________________________________________________________________________________________________________________________
 class dataSave:
     def __init__(self, TESTMODE, map_name,max_iter):
-        self.rowSize = 50000
+        self.rowSize = 10000
         self.stateCounter = 0
         self.lapInfoCounter = 0
+        self.opt_counter = 0
         self.TESTMODE = TESTMODE
         self.map_name = map_name
         self.max_iter = max_iter
         self.txt_x0 = np.zeros((self.rowSize,8))
         self.txt_lapInfo = np.zeros((max_iter,8))
+        self.txt_opt = np.zeros((self.rowSize,48))
+
+    def saveOptimisation(self, x0, x0_solution, x0_ref):
+        #x0 nx, x0_solution nx*(N+1), x0_ref 2*N+1
+        self.txt_opt[self.opt_counter, 0:3] = [x0[0], x0[1], x0[3]]
+        self.txt_opt[self.opt_counter, 3:27] = x0_solution.reshape((1,24))
+        self.txt_opt[self.opt_counter, 27:48] = x0_ref.reshape((1,-1))
+        self.opt_counter += 1
 
     def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
         self.txt_x0[self.stateCounter,0] = time
@@ -405,9 +421,13 @@ class dataSave:
     def saveLapInfo(self):
         var1 = "NA"
         var2 = "NA"
+
+        for i in range(self.rowSize):
+            if (self.txt_opt[i,35] == 0):
+                self.txt_opt = np.delete(self.txt_opt, slice(i,self.rowSize),axis=0)
+                break
+        np.savetxt(f"csv/MPC_sol_{self.map_name}.csv", self.txt_opt,delimiter=',',header = f"x0, x_bar, x_ref", fmt="%-10f")
         np.savetxt(f"csv/MPC_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
-
-
 
 def calculate_angle_diff(angle_vec):
     angle_diff = np.zeros(len(angle_vec)-1)

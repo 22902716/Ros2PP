@@ -61,7 +61,7 @@ class MPCCControllerNode (Node):
                    ]
         speed = msg.twist.twist.linear.x
 
-        indx, trackErr,speed,steering, slip = self.planner.plan(self.x0,laptime, speed)
+        _, _,speed,steering, slip, controls, x_bar, x_ref = self.planner.plan(self.x0,laptime, speed)
         # self.get_logger().info("i planned")
         
         cmd.drive.speed = speed*self.speedgain
@@ -77,7 +77,7 @@ class MPCCControllerNode (Node):
         #                        + " tar_x = " + str(self.points[self.ego_index][0])
         #                        + "tar_y = " + str(self.points[self.ego_index][1]))
         # self.get_logger().info(str(self.planner.X0_slip[3]))
-        self.get_logger().info(str(self.planner.completion))
+        self.get_logger().info(str(x_bar))
 
         if self.planner.completion >= 90:
             
@@ -94,8 +94,9 @@ class MPCCControllerNode (Node):
                 # self.get_logger().info("i published")
                 self.cmd_start_timer = self.cmd_current_timer
 
+        self.ds.saveStates(laptime, self.planner.X0_slip, 0.0, 0.0, 0.0, self.planner.completion, steering, slip)
 
-
+        self.ds.saveOptimisation(self.planner.X0_slip, x_bar, x_ref)
         # self.ds.saveStates(laptime, self.x0, 0, 0, 0, self.planner.completion, steering, slip)
 
 
@@ -155,7 +156,7 @@ class MPCC:
         self.p_init = 7
         self.p_min = 1
         self.p_max = 10
-        self.fmax = 9.81*1.0*self.mass
+        self.fmax = 9.81*0.8*self.mass
 
         self.psi_min = -10
         self.psi_max = 10
@@ -231,7 +232,7 @@ class MPCC:
 
         x0, self.X0_slip = self.inputStateAdust(x0, speed)
         x0 = self.build_initial_state(x0)
-        self.construct_warm_start_soln(x0) 
+        x0_ref = self.construct_warm_start_soln(x0) 
 
         p = self.generate_parameters(x0,self.X0_slip[3])
         controls,self.x_bar = self.solve(p)
@@ -242,9 +243,8 @@ class MPCC:
         ego_index,_ = self.get_trackline_segment(x0[0:2])
         self.completion = round(ego_index/len(self.wpts)*100,2)
         slip_angle = self.slipAngleCalc(x0)
-        self.ds.saveStates(laptime, self.X0_slip, 0.0, 0.0, 0.0, self.completion, steering, slip_angle)
 
-        return ego_index, 0, speed,steering, slip_angle
+        return ego_index, 0, speed,steering, slip_angle, controls, self.x_bar, x0_ref
     
     def slipAngleCalc(self, x0):
         x = [self.X0_slip[0] - self.prev_x0[0]]
@@ -411,6 +411,7 @@ class MPCC:
             self.X0[k, :] = np.array([x_next.full()[0, 0], y_next.full()[0, 0], psi_next, s_next])
 
         # self.realTimePlot(self.x_bar, self.X0)
+        return self.X0
 
     def inputStateAdust(self,x0, speed):
 
@@ -431,14 +432,17 @@ class MPCC:
 
 class dataSave:
     def __init__(self, TESTMODE, map_name,max_iter):
-        self.rowSize = 50000
+        self.rowSize = 10000
         self.stateCounter = 0
         self.lapInfoCounter = 0
+        self.opt_counter = 0
         self.TESTMODE = TESTMODE
         self.map_name = map_name
         self.max_iter = max_iter
         self.txt_x0 = np.zeros((self.rowSize,10))
         self.txt_lapInfo = np.zeros((max_iter,8))
+        self.txt_opt = np.zeros((self.rowSize,51))
+
 
     def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion, steering, slip_angle):
         self.txt_x0[self.stateCounter,0] = time
@@ -451,6 +455,13 @@ class dataSave:
         self.txt_x0[self.stateCounter,9] = slip_angle
         self.stateCounter += 1
         #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise, completion, steering, slip_angle
+
+    def saveOptimisation(self, x0, x0_solution, x0_ref):
+        #x0 nx, x0_solution nx*(N+1), x0_ref 2*N+1
+        self.txt_opt[self.opt_counter, 0:3] = [x0[0], x0[1], x0[3]]
+        self.txt_opt[self.opt_counter, 3:27] = x0_solution.reshape((1,24))
+        self.txt_opt[self.opt_counter, 27:51] = x0_ref.reshape((1,24))
+        self.opt_counter += 1
 
     def savefile(self, iter):
         for i in range(self.rowSize):
@@ -477,6 +488,12 @@ class dataSave:
     def saveLapInfo(self):
         var1 = "NA"
         var2 = "NA"
+        for i in range(self.rowSize):
+            if (self.txt_opt[i,4] == 0):
+                self.txt_opt = np.delete(self.txt_opt, slice(i,self.rowSize),axis=0)
+                break
+        np.savetxt(f"csv/MPCC_sol_{self.map_name}_rviz.csv", self.txt_opt,delimiter=',',header = f"x0, x_bar, x_ref", fmt="%-10f")
+        
         np.savetxt(f"csv/MPCC_{self.map_name}_{self.TESTMODE}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
