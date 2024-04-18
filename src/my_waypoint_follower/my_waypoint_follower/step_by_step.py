@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 def plot_solution_MPC():
-    data = np.loadtxt("csv/MPC_sol_CornerHallE.csv",delimiter=',')
+    data = np.loadtxt("csv/MPC_sol_CornerHallE_car_data_0.3.csv",delimiter=',')
     trajectory = np.loadtxt("maps/CornerHallE_raceline.csv",delimiter=',')
     plt.figure()
     for counter in range(0,len(data)):
@@ -41,8 +41,8 @@ def plot_solution_MPCC():
         
 
 def main():
-    # plot_solution_MPC()
-    plot_solution_MPCC()
+    plot_solution_MPC()
+    # plot_solution_MPCC()
 
 
 
