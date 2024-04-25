@@ -1,0 +1,23 @@
+[20.540s] Invoking command in '/home/jetson/Documents/Ros2PP/build/my_waypoint_follower': PYTHONPATH=/home/jetson/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/jetson/Documents/Ros2PP/build/my_waypoint_follower/build --no-deps install_data
+[24.263s] running develop
+[25.548s] running egg_info
+[25.549s] writing my_waypoint_follower.egg-info/PKG-INFO
+[25.551s] writing dependency_links to my_waypoint_follower.egg-info/dependency_links.txt
+[25.557s] writing entry points to my_waypoint_follower.egg-info/entry_points.txt
+[25.557s] writing requirements to my_waypoint_follower.egg-info/requires.txt
+[25.558s] writing top-level names to my_waypoint_follower.egg-info/top_level.txt
+[25.864s] reading manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'
+[25.869s] writing manifest file 'my_waypoint_follower.egg-info/SOURCES.txt'
+[26.123s] running build_ext
+[26.261s] Creating /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages/my-waypoint-follower.egg-link (link to .)
+[26.265s] Installing MPCC_ros script to /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[26.266s] Installing MPC_ros script to /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[26.267s] Installing MPC_ros_tuning script to /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[26.267s] Installing Opt_MPC script to /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[26.268s] Installing Opt_MPCC script to /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[26.269s] Installing Opt_PurePursuit script to /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[26.269s] Installing purePursuit_ros script to /home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/my_waypoint_follower
+[26.271s] 
+[26.271s] Installed /home/jetson/Documents/Ros2PP/build/my_waypoint_follower
+[26.271s] running install_data
+[26.401s] Invoked command in '/home/jetson/Documents/Ros2PP/build/my_waypoint_follower' returned '0': PYTHONPATH=/home/jetson/Documents/Ros2PP/build/my_waypoint_follower/prefix_override:/home/jetson/Documents/Ros2PP/install/my_waypoint_follower/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/jetson/Documents/Ros2PP/build/my_waypoint_follower/build --no-deps install_data

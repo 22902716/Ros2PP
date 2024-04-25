@@ -21,10 +21,10 @@ class MPCCControllerNode (Node):
         #initialise subscriber and publisher node
         super().__init__("MPC_ros")
         #car subscriber
-        # self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+        self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
 
         #rvis subscriber
-        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+        #self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
 
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
@@ -33,7 +33,7 @@ class MPCCControllerNode (Node):
 
         #initialise position vectors 
         self.x0 = [0.0] * 4         #x_pos, y_pos, yaw, speed 
-        self.speedgain = 0.5
+        self.speedgain = 0.2
         self.iter = 0
 
         self.planner = MPCC(mapname,"Benchmark", self.speedgain)
@@ -98,7 +98,7 @@ class MPCCControllerNode (Node):
             rclpy.shutdown()     
         else:
             if self.planner.completion <= 1000:
-                if self.Joy7 == 0:
+                if self.Joy7 == 1:
                
                 	#self.get_logger().info("controller active")
                     self.drive_pub.publish(cmd)
@@ -145,7 +145,7 @@ class MPCC:
         #adjustable params
         #----------------------
 
-        self.dt = 0.15
+        self.dt = 0.1
         self.N = 5  #prediction horizon
         self.mass = 3.8
         self.L = 0.324
@@ -161,8 +161,8 @@ class MPCC:
         self.psi_max = 10
 
         self.weight_progress = 10
-        self.weight_lag = 1000
-        self.weight_contour = 10
+        self.weight_lag = 100
+        self.weight_contour = 100
         self.weight_steering = 1.5
 
         self.v_min = 2 
@@ -469,7 +469,7 @@ class dataSave:
             if (self.txt_x0[i+2,0] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i+2,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/MPCC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}_car.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/2604_MPCC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}_car.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,10))
         self.stateCounter = 0
@@ -493,8 +493,8 @@ class dataSave:
             if (self.txt_opt[i,4] == 0):
                 self.txt_opt = np.delete(self.txt_opt, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"csv/MPCC_sol_{self.map_name}_car_data.csv", self.txt_opt,delimiter=',',header = f"x0, x_solution, x_ref", fmt="%-10f")
-        np.savetxt(f"csv/MPCC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}_car.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        np.savetxt(f"csv/2604_MPCC_sol_{self.map_name}_car_data_{self.speedgain_txt}.csv", self.txt_opt,delimiter=',',header = f"x0, x_solution, x_ref", fmt="%-10f")
+        np.savetxt(f"csv/2604_MPCC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}_car.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 

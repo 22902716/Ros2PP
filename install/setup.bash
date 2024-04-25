@@ -21,6 +21,12 @@ _colcon_prefix_chain_bash_source_script() {
 # setting COLCON_CURRENT_PREFIX avoids determining the prefix in the sourced script
 COLCON_CURRENT_PREFIX="/opt/ros/foxy"
 _colcon_prefix_chain_bash_source_script "$COLCON_CURRENT_PREFIX/local_setup.bash"
+# setting COLCON_CURRENT_PREFIX avoids determining the prefix in the sourced script
+COLCON_CURRENT_PREFIX="/home/jetson/ros2_foxy/install"
+_colcon_prefix_chain_bash_source_script "$COLCON_CURRENT_PREFIX/local_setup.bash"
+# setting COLCON_CURRENT_PREFIX avoids determining the prefix in the sourced script
+COLCON_CURRENT_PREFIX="/home/jetson/f1tenth_ws/install"
+_colcon_prefix_chain_bash_source_script "$COLCON_CURRENT_PREFIX/local_setup.bash"
 
 # source this prefix
 # setting COLCON_CURRENT_PREFIX avoids determining the prefix in the sourced script

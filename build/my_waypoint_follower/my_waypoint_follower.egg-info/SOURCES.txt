@@ -18,6 +18,7 @@ my_waypoint_follower/ReferencePath.py
 my_waypoint_follower/__init__.py
 my_waypoint_follower/graph_plot.py
 my_waypoint_follower/purePursuit_ros.py
+my_waypoint_follower/step_by_step.py
 my_waypoint_follower.egg-info/PKG-INFO
 my_waypoint_follower.egg-info/SOURCES.txt
 my_waypoint_follower.egg-info/dependency_links.txt

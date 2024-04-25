@@ -66,7 +66,7 @@ class PoseSubscriberNode (Node):
             self.ds.saveLapInfo()
             rclpy.shutdown()    
         else:
-            if self.cmd_current_timer - self.cmd_start_timer >= 0.001:
+            if self.cmd_current_timer - self.cmd_start_timer >= 0.00:
                 if self.Joy7 == 1:
                 	# self.get_logger().info("controller active")
                     self.drive_pub.publish(cmd)
@@ -224,7 +224,7 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/PP_{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/2604_PP_{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,8))
         self.stateCounter = 0
@@ -244,7 +244,7 @@ class dataSave:
     def saveLapInfo(self):
         var1 = "NA"
         var2 = "NA"
-        np.savetxt(f"csv/PP_{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        np.savetxt(f"csv/2604_PP_{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 
