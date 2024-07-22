@@ -106,7 +106,7 @@ class MPCControllerNode (Node):
 
 
         self.ds.saveOptimisation(self.x0, x_bar, x_ref)
-        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
+        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion, steering)
 
 
         # self.get_logger().info("pose_x = " + str(self.x) + " pose_y = " + str(self.y) + " orientation_z = " + str(self.yaw))
@@ -138,7 +138,7 @@ class MPCControllerNode (Node):
 class MPC():
     def __init__(self,mapname):
         #MPC specific parameters
-        self.dt = 0.2       #this is initialisation default, require tuning to make sure no crash 
+        self.dt = 0.1       #this is initialisation default, require tuning to make sure no crash 
         self.L = 0.324
         self.N = 5          # number of steps to predict
         self.nx = 4
@@ -375,7 +375,7 @@ class dataSave:
         self.TESTMODE = TESTMODE
         self.map_name = map_name
         self.max_iter = max_iter
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,9))
         self.txt_lapInfo = np.zeros((max_iter,8))
         self.txt_opt = np.zeros((self.rowSize,48))
 
@@ -386,13 +386,14 @@ class dataSave:
         self.txt_opt[self.opt_counter, 27:48] = x0_ref.reshape((1,-1))
         self.opt_counter += 1
 
-    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
+    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion, steering):
         self.txt_x0[self.stateCounter,0] = time
         self.txt_x0[self.stateCounter,1:4] = [x0[0],x0[1],x0[3]]
         self.txt_x0[self.stateCounter,4] = expected_speed
         self.txt_x0[self.stateCounter,5] = tracking_error
         self.txt_x0[self.stateCounter,6] = noise
         self.txt_x0[self.stateCounter,7] = completion
+        self.txt_x0[self.stateCounter,8] = steering
         self.stateCounter += 1
         #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise
 
@@ -403,7 +404,7 @@ class dataSave:
                 break
         np.savetxt(f"Imgs/{self.map_name}_{self.TESTMODE}_{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
 
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,9))
         self.stateCounter = 0
     
     def lapInfo(self,lap_count, lap_success, laptime, completion, var1, var2, Computation_time):

@@ -12,7 +12,6 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 import time
 
 
-
 class MPCControllerNode (Node):
     def __init__(self):
 

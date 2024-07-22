@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 def plot_solution_MPC():
-    data = np.loadtxt("csv/MPC_sol_CornerHallE_car_data_0.3.csv",delimiter=',')
+    data = np.loadtxt("Benchmark_car/csv/1807_MPC_sol_sim_CornerHallE_car_data_0.5.csv",delimiter=',')
     trajectory = np.loadtxt("maps/CornerHallE_raceline.csv",delimiter=',')
     plt.figure()
     for counter in range(0,len(data)):
@@ -21,11 +21,11 @@ def plot_solution_MPC():
 
 def plot_solution_MPCC():
     # data = np.loadtxt("csv/MPCC_sol_CornerHallE_rviz.csv",delimiter=',')
-    data = np.loadtxt("csv/MPCC_sol_CornerHallE_car_data.csv",delimiter=',')
+    data = np.loadtxt("Benchmark_car/csv/1807_MPCC_sol_CornerHallE_car_data_6.csv",delimiter=',')
     trajectory = np.loadtxt("maps/CornerHallE_centerline.csv",delimiter=',')
     plt.figure()
     for counter in range(0,len(data)):
-        plt.plot(trajectory[:,0], trajectory[:,1])
+        plt.plot(trajectory[:,0], trajectory[:,1], c='k')
         plt.scatter(data[counter, 3:9], data[counter, 9:15], c='b')
 
         plt.scatter(data[counter, 27], data[counter, 28], c='r')
@@ -35,7 +35,7 @@ def plot_solution_MPCC():
         plt.scatter(data[counter, 43], data[counter, 44], c='r')
         plt.scatter(data[counter, 47], data[counter, 48], c='r')
 
-        plt.pause(0.05)
+        plt.pause(0.1)
         plt.clf()
 
         

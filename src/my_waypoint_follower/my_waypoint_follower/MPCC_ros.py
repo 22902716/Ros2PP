@@ -146,7 +146,7 @@ class MPCC:
         #adjustable params
         #----------------------
 
-        self.dt = 0.25
+        self.dt = 0.16
         self.N = 5  #prediction horizon
         self.mass = 3.8
         self.L = 0.324
@@ -156,17 +156,17 @@ class MPCC:
         self.p_init = 7
         self.p_min = 1
         self.p_max = 10
-        self.fmax = 9.81*0.8*self.mass
+        self.fmax = 9.81*1.0*self.mass
 
         self.psi_min = -10
         self.psi_max = 10
 
-        self.weight_progress = 10
+        self.weight_progress = 100
         self.weight_lag = 1000
-        self.weight_contour = 10
+        self.weight_contour = 1
         self.weight_steering = 1.5
 
-        self.v_min = 2 
+        self.v_min = 1 
         self.v_max = 8
         #------------------------
 

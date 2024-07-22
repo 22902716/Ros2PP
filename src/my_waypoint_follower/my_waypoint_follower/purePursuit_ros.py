@@ -64,7 +64,7 @@ class PoseSubscriberNode(Node):
         cmd.drive.steering_angle = steering
         # self.drive_pub.publish(cmd)
 
-        if self.planner.completion >= 90:
+        if self.planner.completion >= 50:
             
             self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
             self.get_logger().info("Lap info csv saved")
@@ -87,7 +87,7 @@ class PoseSubscriberNode(Node):
         #                        + "tar_y = " + str(self.planner.points[indx][1]))
 
 
-        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
+        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion, steering)
 
     def ego_reset_stop(self):
         msg = PoseWithCovarianceStamped()
@@ -131,8 +131,8 @@ class PurePursuit():
         self.ego_index = None
         self.Tindx = None
 
-        self.v_gain = 0.07                 #change this parameter for different tracks 
-        self.lfd = 0.3  
+        self.v_gain = 0.09                 #change this parameter for different tracks 
+        self.lfd = 0.45  
 
     def distanceCalc(self,x, y, tx, ty):     #tx = target x, ty = target y
         dx = tx - x
@@ -228,16 +228,17 @@ class dataSave:
         self.TESTMODE = TESTMODE
         self.map_name = map_name
         self.max_iter = max_iter
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,9))
         self.txt_lapInfo = np.zeros((max_iter,8))
 
-    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
+    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion, steering):
         self.txt_x0[self.stateCounter,0] = time
         self.txt_x0[self.stateCounter,1:4] = [x0[0],x0[1],x0[3]]
         self.txt_x0[self.stateCounter,4] = expected_speed
         self.txt_x0[self.stateCounter,5] = tracking_error
         self.txt_x0[self.stateCounter,6] = noise
         self.txt_x0[self.stateCounter,7] = completion
+        self.txt_x0[self.stateCounter,8] = steering
         self.stateCounter += 1
         #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise
 
@@ -246,7 +247,7 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/PP_{self.map_name}_{self.TESTMODE}_{str(iter)}_ros.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Imgs/PP_{self.map_name}_{self.TESTMODE}_{str(iter)}_ros.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error, completion, steering", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,8))
         self.stateCounter = 0

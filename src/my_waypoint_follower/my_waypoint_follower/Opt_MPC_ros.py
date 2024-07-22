@@ -10,25 +10,28 @@ from sensor_msgs.msg import Joy
 import time
 import casadi as ca
 
-
+speed_profile_gain = 1.0
+maxspeed = 3.0
+testmode_txt = "sim_Car"
+# testmode_txt = "real_Car"
+date = "2107"
 
 class MPCNode (Node):
     def __init__(self):
         super().__init__("MPC_ros")
         mapname = "CornerHallE"
         max_iter = 1
-        self.speedgain = 0.5
 
         self.planner = MPC(mapname)
-        self.ds = dataSave("ros_Car", mapname, max_iter, self.speedgain)
+        self.ds = dataSave(testmode_txt, mapname, max_iter, speed_profile_gain)
         
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
 
         #car subscriber
-        self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+        # self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
 
         #rvis subscriber
-        #self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
 
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.Joy7 = 0
@@ -42,10 +45,10 @@ class MPCNode (Node):
     
     def callback(self, msg: Odometry):
 
-        lapsuccess = 0 if self.planner.completion<50 else 1
+        lapsuccess = 0 if self.planner.completion < 50 else 1
         laptime = time.time() - self.start_laptime
         self.cmd_current_timer = time.perf_counter()
-        #self.get_logger().info("in callback")       
+        # self.get_logger().info("in callback")       
 
         cmd = AckermannDriveStamped()
 
@@ -70,11 +73,14 @@ class MPCNode (Node):
 
         if self.planner.completion >= 50:
             self.get_logger().info("I finished running the lap")
-            self.ds.lapInfo(1, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
+            self.ds.lapInfo(1, lapsuccess, laptime, self.planner.completion, self.planner.dt_gain, self.planner.dt_constant, laptime)
             self.ds.saveLapInfo()
             self.get_logger().info("Lap info csv saved")
             self.ds.savefile()
             self.get_logger().info("States for the lap saved")
+            cmd.drive.speed = 0.0
+            cmd.drive.steering_angle = 0.0
+            self.drive_pub.publish(cmd)
             rclpy.shutdown()    
         else:
             if self.cmd_current_timer - self.cmd_start_timer >= 0.0:
@@ -82,13 +88,13 @@ class MPCNode (Node):
                 	# self.get_logger().info("controller active")
                             
                     indx, trackErr, speed, steering,x_bar, x_ref = self.planner.plan(self.x0)
-                    cmd.drive.speed = speed*self.speedgain
+                    cmd.drive.speed = speed
                     #cmd.drive.speed = 1.0
                     cmd.drive.steering_angle = steering
                     self.ds.saveOptimisation(self.x0, x_bar, x_ref)
                     slip = self.slipAngleCalc(self.x0)
                     self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion, steering, slip)
-                    self.get_logger().info("speed = " + str(self.speedgain*speed) + "steering = " + str(steering))
+                    self.get_logger().info("speed = " + str(speed) + "steering = " + str(steering))
 
                     self.drive_pub.publish(cmd)
                 else:
@@ -162,10 +168,8 @@ class MPC():
         seg_lengths = np.linalg.norm(np.diff(self.wpts, axis=0), axis=1)
         self.ss = np.insert(np.cumsum(seg_lengths), 0, 0)
 
-        self.trueSpeedProfile = self.waypoints[:, 5]
-        self.speed_list = self.waypoints[:, 5]
-
-        self.vs = self.trueSpeedProfile  #speed profile
+        self.vs = self.waypoints[:, 5]*speed_profile_gain
+        self.speed_list = self.waypoints[:, 5]*speed_profile_gain
 
         self.total_s = self.ss[-1]
 
@@ -278,7 +282,8 @@ class MPC():
         return u0_estimated
     
     def plan(self, x0):
-        self.dt = self.dt_gain*x0[3]+self.dt_constant          
+        # self.dt = self.dt_gain*x0[3]+self.dt_constant   
+        self.dt = 0.1       
         reference_path = self.get_timed_trajectory_segment(x0, self.dt, self.N+2)
         u0_estimated = self.estimate_u0(reference_path, x0)
 
@@ -310,8 +315,9 @@ class MPC():
         speeds = x_ref[2]
 
         # Add a speed objective cost.
-        J = ca.sumsqr(x[:2, :] - x_ref[:2, :])  + ca.sumsqr(x[3, :] - speeds[None, :]) *10 + ca.sumsqr(u[0, :] * 0.3)
-        
+        # J = ca.sumsqr(x[:2, :] - x_ref[:2, :])  + ca.sumsqr(x[3, :] - speeds[None, :]) *10 + ca.sumsqr(u[0, :] * 0.3)
+        J = ca.sumsqr(x[:2, :] - x_ref[:2, :])  + ca.sumsqr(x[3, :] - speeds[None, :])*1000
+
         g = []
         for k in range(self.N):
             x_next = x[:,k] + self.f(x[:,k], u[:,k])*self.dt
@@ -331,7 +337,7 @@ class MPC():
         x_init = ca.vertcat(*x_init)
         
         lbx = [-ca.inf, -ca.inf, -ca.inf, 0] * (self.N+1) + self.u_min * self.N
-        ubx = [ca.inf, ca.inf, ca.inf, 8] * (self.N+1) + self.u_max * self.N
+        ubx = [ca.inf, ca.inf, ca.inf, maxspeed] * (self.N+1) + self.u_max * self.N
         
         x_nlp = ca.vertcat(x.reshape((-1, 1)), u.reshape((-1, 1)))
         g_nlp = ca.vertcat(*g)
@@ -404,7 +410,8 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/2604_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Benchmark_car/Imgs/{date}_MPC_sim_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}.csv", self.txt_x0, delimiter = ',',
+                    header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error, noise, completion, steering, slip", fmt="%-10f")
 
         self.txt_x0 = np.zeros((self.rowSize,10))
         self.stateCounter = 0
@@ -428,9 +435,11 @@ class dataSave:
             if (self.txt_opt[i,35] == 0):
                 self.txt_opt = np.delete(self.txt_opt, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"csv/2604_MPC_sol_{self.map_name}_car_data_{self.speedgain_txt}.csv", self.txt_opt,delimiter=',',header = f"x0, x_bar, x_ref", fmt="%-10f")
+        np.savetxt(f"Benchmark_car/csv/{date}_MPC_sol_sim_{self.map_name}_car_data_{self.speedgain_txt}.csv", self.txt_opt,delimiter=',',
+                   header = f"x0, x_bar, x_ref", fmt="%-10f")
         
-        np.savetxt(f"csv/2604_MPC_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        np.savetxt(f"Benchmark_car/csv/{date}_MPC_sim_{self.map_name}_{self.TESTMODE}_{self.speedgain_txt}.csv", self.txt_lapInfo,delimiter=',',
+                   header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 

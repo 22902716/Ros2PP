@@ -9,6 +9,11 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from sensor_msgs.msg import Joy
 import time
 
+speed_profile_gain = 0.5
+testmode_txt = "sim_Car"
+# testmode_txt = "real_Car"
+date = "2107"
+
 class PoseSubscriberNode (Node):
     def __init__(self):
         super().__init__("pp_follower")
@@ -16,11 +21,14 @@ class PoseSubscriberNode (Node):
         max_iter = 1
         self.speedgain = 0.5
 
-        self.planner = PurePursuit(mapname, speedgain=self.speedgain)
-        self.ds = dataSave("ros_Car", mapname, max_iter, self.speedgain)
+        self.planner = PurePursuit(mapname)
+        self.ds = dataSave(testmode_txt, mapname, max_iter, speed_profile_gain)
         
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
-        self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+
+        # self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.Joy7 = 0
 
@@ -54,7 +62,7 @@ class PoseSubscriberNode (Node):
 
         
         indx, trackErr, speed, steering = self.planner.action(self.x0)
-        cmd.drive.speed = speed*self.speedgain
+        cmd.drive.speed = speed
         cmd.drive.steering_angle = steering
 
         if self.planner.completion >= 50:
@@ -64,6 +72,9 @@ class PoseSubscriberNode (Node):
             self.ds.savefile(1)
             self.get_logger().info("States for the lap saved")
             self.ds.saveLapInfo()
+            cmd.drive.speed = 0.0
+            cmd.drive.steering_angle = 0.0
+            self.drive_pub.publish(cmd)
             rclpy.shutdown()    
         else:
             if self.cmd_current_timer - self.cmd_start_timer >= 0.00:
@@ -78,7 +89,7 @@ class PoseSubscriberNode (Node):
                 # self.get_logger().info("i published")
                 self.cmd_start_timer = self.cmd_current_timer       
 
-        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion)
+        self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion, steering)
 
         self.get_logger().info("pose_x = " + str(self.x0[0]) 
                                + " pose_y = " + str(self.x0[1]) 
@@ -97,14 +108,13 @@ class PoseSubscriberNode (Node):
 
 
 class PurePursuit():
-    def __init__(self, mapname, wb = 0.324, speedgain = 1.):
+    def __init__(self, mapname, wb = 0.324):
     
         self.waypoints = np.loadtxt('maps/' + mapname + '_raceline.csv', delimiter=',')
         self.points = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
         self.completion = 0.0
 
         self.wheelbase = wb                 #vehicle wheelbase                           
-        self.speedgain = speedgain  
         self.ego_index = None
         self.Tindx = None
 
@@ -164,7 +174,7 @@ class PurePursuit():
         if self.Tindx is None:
             self.Tindx = self.ego_index
         
-        self.speed_list = self.waypoints[:, 5]
+        self.speed_list = self.waypoints[:, 5] * speed_profile_gain
         self.speed = self.speed_list[self.ego_index]
 
         self.Lf = self.speed*self.v_gain + self.lfd  # update look ahead distance
@@ -206,16 +216,17 @@ class dataSave:
         self.speedgain = speedgain
         self.map_name = map_name
         self.max_iter = max_iter
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,9))
         self.txt_lapInfo = np.zeros((max_iter,8))
 
-    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
+    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion,steering):
         self.txt_x0[self.stateCounter,0] = time
         self.txt_x0[self.stateCounter,1:4] = [x0[0],x0[1],x0[3]]
         self.txt_x0[self.stateCounter,4] = expected_speed
         self.txt_x0[self.stateCounter,5] = tracking_error
         self.txt_x0[self.stateCounter,6] = noise
         self.txt_x0[self.stateCounter,7] = completion
+        self.txt_x0[self.stateCounter,8] = steering
         self.stateCounter += 1
         #time, x_pos, y_pos, actual_speed, expected_speed, tracking_error, noise
 
@@ -224,9 +235,10 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/2604_PP_{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
+        np.savetxt(f"Benchmark_car/Imgs/{date}_PP_{self.map_name}_{self.TESTMODE}_{speed_profile_gain}.csv", self.txt_x0, delimiter = ',',
+                    header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error, noise, completion, steering", fmt="%-10f")
 
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,9))
         self.stateCounter = 0
     
     def lapInfo(self,lap_count, lap_success, laptime, completion, var1, var2, Computation_time):
@@ -242,9 +254,10 @@ class dataSave:
         #lap_count, lap_success, laptime, completion, var1, var2, aveTrackErr, Computation_time
 
     def saveLapInfo(self):
-        var1 = "NA"
-        var2 = "NA"
-        np.savetxt(f"csv/2604_PP_{self.map_name}_{self.TESTMODE}_{self.speedgain}.csv", self.txt_lapInfo,delimiter=',',header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
+        var1 = "v_gain"
+        var2 = "v_lfd"
+        np.savetxt(f"Benchmark_car/csv/{date}_PP_{self.map_name}_{self.TESTMODE}_{speed_profile_gain}.csv", self.txt_lapInfo,delimiter=',',
+                   header = f"lap_count, lap_success, laptime, completion, {var1}, {var2}, aveTrackErr, Computation_time", fmt="%-10f")
 
 
 
