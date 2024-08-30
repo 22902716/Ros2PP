@@ -2,19 +2,20 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 def plot_solution_MPC():
-    data = np.loadtxt("Benchmark_car/csv/1807_MPC_sol_sim_CornerHallE_car_data_0.5.csv",delimiter=',')
-    trajectory = np.loadtxt("maps/CornerHallE_raceline.csv",delimiter=',')
+    data = np.loadtxt("src/my_waypoint_follower/my_waypoint_follower/Benchmark_car/csv/2708_MPC_sol_sim_CornerHallE_car_data_1.0.csv",delimiter=',')
+    trajectory = np.loadtxt("src/my_waypoint_follower/my_waypoint_follower/maps/CornerHallE_raceline.csv",delimiter=',')
     plt.figure()
+    plt.xlim(0,5)
     for counter in range(0,len(data)):
-        print(data[counter, 3:9], data[counter, 9:15])
-        plt.plot(trajectory[:,1], trajectory[:,2])
+        # print(data[counter, 3:9], data[counter, 9:15])
+        plt.plot(trajectory[:100,1], trajectory[:100,2])
         plt.scatter(data[counter, 3:9], data[counter, 9:15], c='b')
-        plt.scatter(data[counter, 27], data[counter, 28])
-        plt.scatter(data[counter, 30], data[counter, 31])
-        plt.scatter(data[counter, 33], data[counter, 34])
-        plt.scatter(data[counter, 36], data[counter, 37])
-        plt.scatter(data[counter, 39], data[counter, 40])
-        plt.scatter(data[counter, 42], data[counter, 43])
+        plt.scatter(data[counter, 27], data[counter, 28], c='r')
+        plt.scatter(data[counter, 30], data[counter, 31], c='r')
+        plt.scatter(data[counter, 33], data[counter, 34], c='r')
+        plt.scatter(data[counter, 36], data[counter, 37], c='r')
+        plt.scatter(data[counter, 39], data[counter, 40], c='r')
+        plt.scatter(data[counter, 42], data[counter, 43], c='r')
 
         plt.pause(0.05)
         plt.clf()

@@ -12,7 +12,7 @@ import time
 speed_profile_gain = 0.5
 testmode_txt = "sim_Car"
 # testmode_txt = "real_Car"
-date = "2107"
+date = "0708"
 
 class PoseSubscriberNode (Node):
     def __init__(self):
@@ -21,11 +21,15 @@ class PoseSubscriberNode (Node):
         max_iter = 1
         self.speedgain = 0.5
 
+
         self.planner = PurePursuit(mapname)
         self.ds = dataSave(testmode_txt, mapname, max_iter, speed_profile_gain)
         
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
-        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+        # self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+
+        #chris pf
+        self.pose_subscriber = self.create_subscription(Odometry, '/expected_pose', self.callback, 10)
 
         # self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
 
@@ -33,6 +37,8 @@ class PoseSubscriberNode (Node):
         self.Joy7 = 0
 
         self.x0 = [0.0] * 4      #x_pos, y_pos, yaw, speed  
+        self.x0_prev = [0.0]*4
+
         self.cmd_start_timer = time.perf_counter()
         self.get_logger().info("initialised")
         self.start_laptime = time.time()
@@ -55,6 +61,8 @@ class PoseSubscriberNode (Node):
         
         yaw = self.euler_from_quaternion(quat_ori[0], quat_ori[1], quat_ori[2], quat_ori[3])
 
+        self.x0_prev = self.x0
+
         self.x0 = [msg.pose.pose.position.x,
                    msg.pose.pose.position.y,
                    yaw,
@@ -65,7 +73,7 @@ class PoseSubscriberNode (Node):
         cmd.drive.speed = speed
         cmd.drive.steering_angle = steering
 
-        if self.planner.completion >= 50:
+        if self.planner.completion >= 50 or (self.planner.completion >= 10 and self.x0_prev[3]-self.x0[3] > 0.5):
             self.get_logger().info("I finished running the lap")
             self.ds.lapInfo(1, lapsuccess, laptime, self.planner.completion, self.planner.v_gain, self.planner.lfd, laptime)
             self.get_logger().info("Lap info csv saved")
@@ -78,7 +86,7 @@ class PoseSubscriberNode (Node):
             rclpy.shutdown()    
         else:
             if self.cmd_current_timer - self.cmd_start_timer >= 0.00:
-                if self.Joy7 == 1:
+                if self.Joy7 == 0:
                 	# self.get_logger().info("controller active")
                     self.drive_pub.publish(cmd)
                 else:

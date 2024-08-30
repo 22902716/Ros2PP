@@ -11,38 +11,88 @@ import time
 import casadi as ca
 
 speed_profile_gain = 1.0
-maxspeed = 3.0
+maxspeed = 2.
 testmode_txt = "sim_Car"
 # testmode_txt = "real_Car"
-date = "2107"
+date = "2708"
 
 class MPCNode (Node):
     def __init__(self):
         super().__init__("MPC_ros")
         mapname = "CornerHallE"
+        self.mapname  = mapname
         max_iter = 1
 
         self.planner = MPC(mapname)
         self.ds = dataSave(testmode_txt, mapname, max_iter, speed_profile_gain)
+        self.kalFilter = KalmanFilter()
         
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
 
         #car subscriber
-        # self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+        self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+
+        #chris pf
+        # self.pose_subscriber = self.create_subscription(Odometry, '/expected_pose', self.callback, 10)
 
         #rvis subscriber
-        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.realOdom, 10)
+        # self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+
 
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.Joy7 = 0
 
         self.x0 = [0.1] * 4      #x_pos, y_pos, yaw, speed  
+        self.x0_prev = [0.0]*4
+
         self.cmd_start_timer = time.perf_counter()
         self.get_logger().info("initialised")
         self.start_laptime = time.time()
         self.prev_x0 = [0.1,0.1,0.1,0.1]
+        self.predict_steering = 0.0
+        self.true_x0 = [0.01,0.01,0.01,0.01]
+        self.true_x0_txt = np.zeros((2000,4))
+        self.trueOdomCounter = 0
 
-    
+    def realOdom(self, msg:Odometry):
+        quat_ori = [msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w]
+        yaw = self.euler_from_quaternion(quat_ori[0], quat_ori[1], quat_ori[2], quat_ori[3])
+
+        self.true_x0 = [msg.pose.pose.position.x,
+                       msg.pose.pose.position.y,
+                       yaw,
+                       msg.twist.twist.linear.x]
+        
+    def save_true_odom(self,x0):
+        self.true_x0_txt [self.trueOdomCounter,0:4] = x0
+        self.trueOdomCounter += 1
+
+    def savefile(self):
+        # for i in range(1000):
+            # if (self.true_x0_txt[i,3] == 0):
+            #     self.true_x0_txt = np.delete(self.true_x0_txt, slice(i,10000),axis=0)
+            #     break
+        np.savetxt(f"Benchmark_car/Imgs/{date}_MPC_trueOdom.csv", self.true_x0_txt, delimiter = ',',
+                    header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error, noise, completion, steering, slip", fmt="%-10f")
+
+
+
+    def add_distance(self, x, y, yaw, steering, speed):
+        oldx,oldy = x,y
+        distance  = speed*0.3
+        yaw = yaw + speed/0.324 * np.tan(steering)*0.3
+
+        temp_coord = [x + distance * math.cos(yaw), y + distance * math.sin(yaw)]
+        new_x = (oldx+temp_coord[0])/2
+        new_y = (oldy+temp_coord[1])/2
+
+
+        return new_x, new_y
+
     def callback(self, msg: Odometry):
 
         lapsuccess = 0 if self.planner.completion < 50 else 1
@@ -59,19 +109,35 @@ class MPCNode (Node):
         
         yaw = self.euler_from_quaternion(quat_ori[0], quat_ori[1], quat_ori[2], quat_ori[3])
 
+        # self.x0_prev = self.x0
+
         self.x0 = [msg.pose.pose.position.x,
                    msg.pose.pose.position.y,
                    yaw,
                    msg.twist.twist.linear.x]
+        
+        self.save_true_odom(self.true_x0)
+        
+        # self.get_logger().info(f"prev_x = {str(self.x0[0])} prev_x = {str(self.x0[1])} + {str(self.x0[2])} and {str(self.x0[3])}")       
+
+        
+        # self.x0[0],self.x0[1] = self.kalFilter.kalman(self.x0[:2], self.x0[3], self.predict_steering, self.planner.dt, self.mapname, self.x0[2])
+
+
+        # self.x0[0], self.x0[1] = self.add_distance(self.x0[0], self.x0[1], self.x0[2], self.predict_steering, self.x0[3]) 
+
+        # self.get_logger().info(f"curr_x = {str(self.x0[0])} curr_y = {str(self.x0[1])} + {str(self.x0[2])} and {str(self.x0[3])}")       
+        self.get_logger().info(f"{str(self.planner.steering_weight)}")
+
         if self.x0[0] == 0: 
             self.x0[0] = 0.0001
         if self.x0[1] == 0: 
             self.x0[1] = 0.0001
         if self.x0[2] == 0: 
             self.x0[2] = 0.0001
+        
 
-
-        if self.planner.completion >= 50:
+        if self.planner.completion >= 50 or (self.planner.completion >= 10 and self.x0_prev[3]-self.x0[3] > 1.5):
             self.get_logger().info("I finished running the lap")
             self.ds.lapInfo(1, lapsuccess, laptime, self.planner.completion, self.planner.dt_gain, self.planner.dt_constant, laptime)
             self.ds.saveLapInfo()
@@ -81,20 +147,24 @@ class MPCNode (Node):
             cmd.drive.speed = 0.0
             cmd.drive.steering_angle = 0.0
             self.drive_pub.publish(cmd)
+            self.savefile()
+            self.get_logger().info("true odom for the lap saved")
+
             rclpy.shutdown()    
         else:
             if self.cmd_current_timer - self.cmd_start_timer >= 0.0:
-                if self.Joy7 == 1:
+                if self.Joy7 == 0:
                 	# self.get_logger().info("controller active")
                             
                     indx, trackErr, speed, steering,x_bar, x_ref = self.planner.plan(self.x0)
+                    self.predict_steering = steering
                     cmd.drive.speed = speed
                     #cmd.drive.speed = 1.0
                     cmd.drive.steering_angle = steering
                     self.ds.saveOptimisation(self.x0, x_bar, x_ref)
                     slip = self.slipAngleCalc(self.x0)
                     self.ds.saveStates(laptime, self.x0, self.planner.speed_list[indx], trackErr, 0, self.planner.completion, steering, slip)
-                    self.get_logger().info("speed = " + str(speed) + "steering = " + str(steering))
+                    # self.get_logger().info("speed = " + str(speed) + "steering = " + str(steering))
 
                     self.drive_pub.publish(cmd)
                 else:
@@ -150,8 +220,9 @@ class MPC():
         self.completion = 0.0
 
         #MPC parameters
-        self.dt_gain = 0.02         #tune these two parameters before running
-        self.dt_constant = 0.08
+        self.dt_gain = 0.1         #tune these two parameters before running
+        self.dt_constant = 0.15
+        self.steering_weight = 0.9
 
 
     def load_waypoints(self,mapname):
@@ -160,6 +231,7 @@ class MPC():
         """
         
         self.waypoints = np.loadtxt(f'maps/{mapname}_raceline.csv', delimiter=',')
+        # self.waypoints = np.loadtxt(f'maps/{mapname}_centerline.csv', delimiter=',')
         self.wpts = np.vstack((self.waypoints[:, 1], self.waypoints[:, 2])).T
 
         self.diffs = self.wpts[1:,:] - self.wpts[:-1,:]
@@ -283,21 +355,33 @@ class MPC():
     
     def plan(self, x0):
         # self.dt = self.dt_gain*x0[3]+self.dt_constant   
-        self.dt = 0.1       
+        self.dt = 0.1
         reference_path = self.get_timed_trajectory_segment(x0, self.dt, self.N+2)
         u0_estimated = self.estimate_u0(reference_path, x0)
-
-        u_bar, x_bar = self.generate_optimal_path(x0, reference_path[:-1].T, u0_estimated)
-
         pose = np.array([x0[0], x0[1]])
         ego_index,min_dists = self.get_trackline_segment(pose)
+        self.steering_weight_change(ego_index, x0[2])
+        u_bar, x_bar = self.generate_optimal_path(x0, reference_path[:-1].T, u0_estimated)
+
+        
         # self.completion = 100 if ego_index/len(self.wpts) == 0 else round(ego_index/len(self.wpts)*100,2)
         self.completion = round(ego_index/len(self.wpts)*100,2)        
         _,trackErr = self.interp_pts(ego_index, min_dists)
         speed = x0[3] + u_bar[1][1]*self.dt
 
         return ego_index, trackErr, speed, u_bar[0][0], x_bar, reference_path # return the first control action
+    
+    def steering_weight_change(self, ego_index,yaw):
+        future_reference_pose = self.waypoints[ego_index + 10]
+        current_reference_pose = self.waypoints[ego_index]
+        angle_from_ref = np.arctan2(future_reference_pose[2] - current_reference_pose[2], future_reference_pose[1] - current_reference_pose[1])
+        current_yaw = yaw
         
+        if angle_from_ref-current_yaw < 0.1:
+            self.steering_weight = 1.5
+        else:
+            self.steering_weight = 0.9
+                
     def generate_optimal_path(self, x0_in, x_ref, u_init):
         """generates a set of optimal control inputs (and resulting states) for an initial position, reference trajectory and estimated control
 
@@ -315,8 +399,11 @@ class MPC():
         speeds = x_ref[2]
 
         # Add a speed objective cost.
-        # J = ca.sumsqr(x[:2, :] - x_ref[:2, :])  + ca.sumsqr(x[3, :] - speeds[None, :]) *10 + ca.sumsqr(u[0, :] * 0.3)
-        J = ca.sumsqr(x[:2, :] - x_ref[:2, :])  + ca.sumsqr(x[3, :] - speeds[None, :])*1000
+        # J = ca.sumsqr(x[:2, :] - x_ref[:2, :])  + ca.sumsqr(x[3, :] - speeds[None, :]) *10 + ca.sumsqr(u[0, :] * 0.9)
+
+        J = ca.sumsqr(x[:2, :] - x_ref[:2, :])  + ca.sumsqr(x[3, :] - speeds[None, :]) *10 + ca.sumsqr(u[0, :] * self.steering_weight)
+
+        # J = ca.sumsqr(x[:2, :] - x_ref[:2, :])*100  + ca.sumsqr(x[3, :] - speeds[None, :])
 
         g = []
         for k in range(self.N):
@@ -337,7 +424,7 @@ class MPC():
         x_init = ca.vertcat(*x_init)
         
         lbx = [-ca.inf, -ca.inf, -ca.inf, 0] * (self.N+1) + self.u_min * self.N
-        ubx = [ca.inf, ca.inf, ca.inf, maxspeed] * (self.N+1) + self.u_max * self.N
+        ubx = [ca.inf, ca.inf, ca.inf, maxspeed+1.3] * (self.N+1) + self.u_max * self.N
         
         x_nlp = ca.vertcat(x.reshape((-1, 1)), u.reshape((-1, 1)))
         g_nlp = ca.vertcat(*g)
@@ -346,7 +433,7 @@ class MPC():
             'g': g_nlp}
         
 
-        opts = {'ipopt': {'print_level': 2},
+        opts = {'ipopt': {'print_level': 0},
                 'print_time': False}
         solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
 
@@ -471,10 +558,97 @@ def main(args = None):
     rclpy.spin(controller_node)          #allows the node to always been running 
     rclpy.shutdown()                    #shut dowwn the node
 
+class KalmanFilter():
+    def __init__(self):
+        dt = 0.2
+        L = 0.324
+        self.F = np.array([
+        [1, 0, -dt*np.sin(0), dt*np.cos(0)],  # Partial derivative wrt x
+        [0, 1, dt*np.cos(0), dt*np.sin(0)],   # Partial derivative wrt y
+        [0, 0, 1, 0],                         # Partial derivative wrt theta
+        [0, 0, 0, 1]                          # Partial derivative wrt v
+    ])
+        self.H = np.array([
+        [1, 0, 0, 0],  # Measure x
+        [0, 1, 0, 0]   # Measure y
+    ])
+
+        self.n = self.F.shape[1]
+        self.m = self.H.shape[0]
+        self.B = np.array([
+        [dt*np.cos(0), 0],
+        [dt*np.sin(0), 0],
+        [0, dt/L],
+        [0, dt]
+    ])
+        self.Q = np.eye(4) * 0.9  # Process noise covariance
+        self.R = np.eye(2) * 0.01   # Measurement noise covariance
+        self.P = np.eye(self.n)
+        self.x = np.array([0, 0, 0, 0]).reshape(4, 1)
+        self.prev_speed = 0.0
+
+    def predict(self, u=np.zeros((2, 1))):
+        self.x = np.dot(self.F, self.x) + np.dot(self.B, u)
+        self.P = np.dot(np.dot(self.F, self.P), self.F.T) + self.Q
+        return self.x
+
+    def update(self, z):
+        y = z - np.dot(self.H, self.x)
+        S = self.R + np.dot(self.H, np.dot(self.P, self.H.T))
+        K = np.dot(np.dot(self.P, self.H.T), np.linalg.inv(S))
+        self.x = self.x + np.dot(K, y)
+        I = np.eye(self.n)
+        self.P = np.dot(np.dot(I - np.dot(K, self.H), self.P), 
+                        (I - np.dot(K, self.H)).T) + np.dot(np.dot(K, self.R), K.T)
+        
+        
+    def kalman(self, x_pf,speed, steering, dt , mapname, theta):
+        # u = [0.1,0.01]
+        L = 0.324
+        # theta  = self.x[2,0]
+        dt = 0.15
+
+        self.F = np.array([
+        [1, 0, -dt*np.sin(theta)*speed, dt*np.cos(theta)*speed],  
+        [0, 1, dt*np.cos(theta)*speed, -dt*np.sin(theta)*speed],   
+        [0, 0, 1, dt/L*np.tan(steering)],                         
+        [0, 0, 0, 1]                          
+    ])
+
+        self.B = np.array([
+        [0, 0],
+        [0, 0],
+        [dt*speed/(L*np.cos(steering)**2), 0],
+        [0 ,dt]
+    ])
+        
+        u = np.array([steering, speed]).reshape(2,1)
+        # u = np.array([steering, (speed-self.prev_speed)/(dt)]).reshape(2,1)
+        # self.prev_speed = speed
+        self.predict(u)
+        x_pf = np.array(x_pf).reshape(2,1)
+        self.update(x_pf)
+
+        waypoints = np.loadtxt('maps/' + mapname + '_raceline.csv', delimiter=',')
+        points = np.vstack((waypoints[:, 1], waypoints[:, 2])).T
+        # new_coord = np.array(self.x[:2].flatten())
+
+        kal_coord = self.x[:2].flatten()
+        # poses = np.vstack((x_pf[0], x_pf[1])).T
+        # min_dist = np.linalg.norm(poses - points,axis = 1)
+        # ego_index = np.argmin(min_dist)
+        # new_coord = np.array([(kal_coord[0]+points[ego_index+4][0]+x_pf[0][0])/3, (kal_coord[1]+points[ego_index+4][1]+x_pf[1][0])/3])
+        T_dt = 0.16
+        new_coord = np.array([(kal_coord[0]+T_dt*np.cos(theta)*speed), (kal_coord[1])+T_dt*np.sin(theta)*speed])
+
+
+        return new_coord[0], new_coord[1]
+        #return the x_pf for a quick check
+
+
+
 
 if __name__ == "__main__":
     main()
     
 
-
-       

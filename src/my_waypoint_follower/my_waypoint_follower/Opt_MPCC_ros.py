@@ -10,11 +10,11 @@ from ReferencePath import ReferencePath as rp
 from sensor_msgs.msg import Joy
 import time
 
-maxspeed = 3
+maxspeed = 1
 speed_profile_gain = maxspeed
 testmode_txt = "sim_Car"
 # testmode_txt = "real_Car"
-date = "2107"
+date = "1508"
 
 
 class MPCCControllerNode (Node):
@@ -28,10 +28,13 @@ class MPCCControllerNode (Node):
         #initialise subscriber and publisher node
         super().__init__("MPC_ros")
         #car subscriber
-        # self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+        self.pose_subscriber = self.create_subscription(Odometry, '/pf/pose/odom', self.callback, 10)
+
+        #chris pf
+        # self.pose_subscriber = self.create_subscription(Odometry, '/expected_pose', self.callback, 10)
 
         #rvis subscriber
-        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+        # self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
 
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
@@ -40,11 +43,25 @@ class MPCCControllerNode (Node):
 
         #initialise position vectors 
         self.x0 = [0.0] * 4         #x_pos, y_pos, yaw, speed 
+        self.x0_prev = [0.0] * 4
         self.iter = 0
 
         self.planner = MPCC(mapname,"Benchmark")
         self.ds = dataSave(testmode_txt, mapname, max_iter)
+        self.predict_steering = 0.0
         self.get_logger().info("initialised")
+
+    def add_distance(self, x, y, yaw, steering, speed):
+        oldx,oldy = x,y
+        distance  = speed*0.4
+        yaw = yaw + speed/0.324 * np.tan(steering)*0.2
+
+        temp_coord = [x + distance * math.cos(yaw), y + distance * math.sin(yaw)]
+        new_x = (oldx+temp_coord[0])/2
+        new_y = (oldy+temp_coord[1])/2
+
+
+        return new_x, new_y
 
     def callback(self, msg: Odometry):
 
@@ -70,15 +87,21 @@ class MPCCControllerNode (Node):
                                               self.ori_x[1],
                                               self.ori_x[2],
                                               self.ori_x[3])
+        self.x0_prev[3] = msg.twist.twist.linear.x
         self.x0 = [msg.pose.pose.position.x,
                    msg.pose.pose.position.y,
                    self.yaw
                    ]
         speed = msg.twist.twist.linear.x
 
+        if self.planner.completion < 13 or self.planner.completion > 25:
+            self.x0[0], self.x0[1] = self.add_distance(self.x0[0], self.x0[1], self.x0[2], self.predict_steering, speed) 
+            self.get_logger().info("distance added")
+
+
         _, _,speed,steering, slip, controls, x_bar, x_ref = self.planner.plan(self.x0,laptime, speed)
-        self.get_logger().info("speed = " + str(speed) + "steering = " + str(steering))
-        
+        # self.get_logger().info("speed = " + str(speed) + "steering = " + str(steering))
+        self.predict_steering = steering
         cmd.drive.speed = speed
         cmd.drive.steering_angle = steering
         # self.get_logger().info("current time step: dt = " + str(self.planner.dt))
@@ -92,9 +115,9 @@ class MPCCControllerNode (Node):
         #                        + " tar_x = " + str(self.points[self.ego_index][0])
         #                        + "tar_y = " + str(self.points[self.ego_index][1]))
         # self.get_logger().info(str(self.planner.X0_slip[3]))
-        self.get_logger().info(str(self.planner.completion))
+        # self.get_logger().info(str(self.planner.completion))
 
-        if self.planner.completion >= 50:
+        if self.planner.completion >= 50 or (self.planner.completion >= 10 and self.x0_prev[3]-speed > 2.5):
             
             self.ds.lapInfo(self.iter, lapsuccess, laptime, self.planner.completion, 0, 0, laptime)
             self.get_logger().info("Lap info csv saved")
@@ -107,11 +130,11 @@ class MPCCControllerNode (Node):
             rclpy.shutdown()     
         else:
             if self.planner.completion <= 1000:
-                if self.Joy7 == 1:
+                if self.Joy7 == 0:
                
                 	#self.get_logger().info("controller active")
                     self.drive_pub.publish(cmd)
-                    self.get_logger().info("controller active")
+                    # self.get_logger().info("controller active")
                 else:
                 	# self.get_logger().info("controller inactive")
                     cmd.drive.speed = 0.0
@@ -120,9 +143,9 @@ class MPCCControllerNode (Node):
                 # self.get_logger().info("i published")
                 self.cmd_start_timer = self.cmd_current_timer 
 
-        self.get_logger().info("pose_x = " + str(self.x0[0]) 
-                               + " pose_y = " + str(self.x0[1]) 
-                               + " orientation_z = " + str(msg.twist.twist.linear.x) + "  " + str(self.planner.completion))
+        # self.get_logger().info("pose_x = " + str(self.x0[0]) 
+        #                        + " pose_y = " + str(self.x0[1]) 
+        #                        + " orientation_z = " + str(msg.twist.twist.linear.x) + "  " + str(self.planner.completion))
 
         self.ds.saveStates(laptime, self.planner.X0_slip, 0, 0, 0, self.planner.completion, steering, slip)
         self.ds.saveOptimisation(self.planner.X0_slip, x_bar, x_ref)
@@ -154,7 +177,7 @@ class MPCC:
         #adjustable params
         #----------------------
 
-        self.dt = 0.16 #default
+        self.dt = 0.2 #default
         # self.dt = maxspeed * 0.03
         self.N = 5  #prediction horizon
         self.mass = 3.8
@@ -174,7 +197,7 @@ class MPCC:
         self.weight_progress = 100
         self.weight_lag = 1000
         self.weight_contour = 1
-        self.weight_steering = 1.5
+        self.weight_steering = 120
 
         self.v_min = 1 
         self.v_max = maxspeed
