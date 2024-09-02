@@ -10,11 +10,11 @@ from ReferencePath import ReferencePath as rp
 from sensor_msgs.msg import Joy
 import time
 
-maxspeed = 1
+maxspeed = 2
 speed_profile_gain = maxspeed
-testmode_txt = "sim_Car"
-# testmode_txt = "real_Car"
-date = "1508"
+# testmode_txt = "sim_Car"
+testmode_txt = "real_Car"
+date = "3008"
 
 
 class MPCCControllerNode (Node):
@@ -22,6 +22,7 @@ class MPCCControllerNode (Node):
 
         mapname_list = ["gbr", "mco", "esp", "CornerHallE", "f1_aut_wide", "levine_blocked"] 
         mapname = mapname_list[3]
+        self.mapname = mapname
         max_iter = 1
         self.is_start = None
 
@@ -34,7 +35,7 @@ class MPCCControllerNode (Node):
         # self.pose_subscriber = self.create_subscription(Odometry, '/expected_pose', self.callback, 10)
 
         #rvis subscriber
-        # self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.callback, 10)
+        self.pose_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.realOdom, 10)
 
         self.drive_pub = self.create_publisher(AckermannDriveStamped, "/drive", 10)
         self.joy_sub = self.create_subscription(Joy, "/joy", self.callbackJoy, 10)
@@ -48,8 +49,39 @@ class MPCCControllerNode (Node):
 
         self.planner = MPCC(mapname,"Benchmark")
         self.ds = dataSave(testmode_txt, mapname, max_iter)
+        self.kalFilter = KalmanFilter()
+
         self.predict_steering = 0.0
         self.get_logger().info("initialised")
+        self.true_x0 = [0.01,0.01,0.01,0.01]
+        self.true_x0_txt = np.zeros((2000,4))
+        self.trueOdomCounter = 0
+
+    def realOdom(self, msg:Odometry):
+        quat_ori = [msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w]
+        yaw = self.planner.euler_from_quaternion(quat_ori[0], quat_ori[1], quat_ori[2], quat_ori[3])
+
+        self.true_x0 = [msg.pose.pose.position.x,
+                       msg.pose.pose.position.y,
+                       yaw,
+                       msg.twist.twist.linear.x]
+        
+    def save_true_odom(self,x0):
+        self.true_x0_txt [self.trueOdomCounter,0:4] = x0
+        self.trueOdomCounter += 1
+
+    def savefile(self):
+        # for i in range(1000):
+            # if (self.true_x0_txt[i,3] == 0):
+            #     self.true_x0_txt = np.delete(self.true_x0_txt, slice(i,10000),axis=0)
+            #     break
+        np.savetxt(f"Benchmark_car/Imgs/{date}_MPCC_trueOdom.csv", self.true_x0_txt, delimiter = ',',
+                    header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error, noise, completion, steering, slip", fmt="%-10f")
+
+
 
     def add_distance(self, x, y, yaw, steering, speed):
         oldx,oldy = x,y
@@ -94,9 +126,17 @@ class MPCCControllerNode (Node):
                    ]
         speed = msg.twist.twist.linear.x
 
-        if self.planner.completion < 13 or self.planner.completion > 25:
-            self.x0[0], self.x0[1] = self.add_distance(self.x0[0], self.x0[1], self.x0[2], self.predict_steering, speed) 
-            self.get_logger().info("distance added")
+        self.save_true_odom(self.true_x0)
+        self.x0[0],self.x0[1] = self.kalFilter.kalman(self.x0[:2], speed, self.predict_steering, self.planner.dt, self.mapname, self.x0[2])
+
+        self.get_logger().info(f"{str(self.planner.angle_from_ref)} ------ {str(self.planner.weight_steering)}-------{self.x0[2]}")
+
+        # self.get_logger().info(f"{str(self.planner.angle_from_ref1)} ------ {str(self.planner.weight_steering)}-------{self.planner.angle_from_ref2}")
+
+
+        # if self.planner.completion < 13 or self.planner.completion > 25:
+        #     self.x0[0], self.x0[1] = self.add_distance(self.x0[0], self.x0[1], self.x0[2], self.predict_steering, speed) 
+        #     self.get_logger().info("distance added")
 
 
         _, _,speed,steering, slip, controls, x_bar, x_ref = self.planner.plan(self.x0,laptime, speed)
@@ -124,13 +164,15 @@ class MPCCControllerNode (Node):
             self.ds.savefile(self.iter)
             self.get_logger().info("States for the lap saved")
             self.ds.saveLapInfo()
+            self.savefile()
+            self.get_logger().info("True odom data saved")
             cmd.drive.speed = 0.0
             cmd.drive.steering_angle = 0.0
             self.drive_pub.publish(cmd)
             rclpy.shutdown()     
         else:
             if self.planner.completion <= 1000:
-                if self.Joy7 == 0:
+                if self.Joy7 == 1:
                
                 	#self.get_logger().info("controller active")
                     self.drive_pub.publish(cmd)
@@ -177,7 +219,7 @@ class MPCC:
         #adjustable params
         #----------------------
 
-        self.dt = 0.2 #default
+        self.dt = 0.3 #default
         # self.dt = maxspeed * 0.03
         self.N = 5  #prediction horizon
         self.mass = 3.8
@@ -185,7 +227,7 @@ class MPCC:
 
         self.delta_min = -0.4
         self.delta_max = 0.4
-        self.p_init = maxspeed
+        self.p_init = 3
         # self.p_init = 7 #default
         self.p_min = 1
         self.p_max = 10
@@ -194,12 +236,12 @@ class MPCC:
         self.psi_min = -10
         self.psi_max = 10
 
-        self.weight_progress = 100
-        self.weight_lag = 1000
-        self.weight_contour = 1
-        self.weight_steering = 120
+        self.weight_progress = 100.
+        self.weight_lag = 1000.
+        self.weight_contour = 1.
+        self.weight_steering = 1.
 
-        self.v_min = 1 
+        self.v_min = 0.5 
         self.v_max = maxspeed
 
         self.rp = rp(map_name,w=0.55)
@@ -211,6 +253,11 @@ class MPCC:
 
         self.drawn_waypoints = []
         self.completion = 0.0
+
+        self.angle_from_ref1 = 0.0
+        self.angle_from_ref2 = 0.0
+        self.angle_from_ref = 0.0
+
 
         self.problem_setup()
 
@@ -256,6 +303,8 @@ class MPCC:
         x0, self.X0_slip = self.inputStateAdust(x0, speed)
         x0 = self.build_initial_state(x0)
         x0_ref = self.construct_warm_start_soln(x0) 
+        ego_index,_ = self.get_trackline_segment(x0[0:2])
+        # self.steering_weight_change(ego_index, x0[2])
 
         p = self.generate_parameters(x0,self.X0_slip[3])
         controls,self.x_bar = self.solve(p)
@@ -263,12 +312,42 @@ class MPCC:
         action = np.array([controls[0, 0], controls[0,1]])
         speed,steering = action[1],action[0]
 
-        ego_index,_ = self.get_trackline_segment(x0[0:2])
+        
+
         self.completion = round(ego_index/len(self.wpts)*100,2)
         slip_angle = self.slipAngleCalc(x0)
         self.ds.saveStates(laptime, self.X0_slip, 0.0, 0.0, 0.0, self.completion, steering, slip_angle)
 
         return ego_index, 0, speed,steering, slip_angle, controls, self.x_bar, x0_ref
+    
+    def steering_weight_change(self, ego_index,yaw):
+        future_reference_pose = self.wpts[ego_index + 10]
+        current_reference_pose = self.wpts[ego_index]
+        angle_from_ref = np.arctan2(future_reference_pose[1] - current_reference_pose[1], future_reference_pose[0] - current_reference_pose[0])
+
+        self.angle_from_ref = np.arctan2(future_reference_pose[1] - current_reference_pose[1], future_reference_pose[0] - current_reference_pose[0])
+
+        # future_reference_pose1 = self.centerline[ego_index+10]
+        # current_reference_pose1 = self.centerline[ego_index]
+
+        # future_reference_pose2 = self.centerline[ego_index+20]
+        # current_reference_pose2 = self.centerline[ego_index+10]
+        # self.angle_from_ref1 = np.arctan2(future_reference_pose1[2] - current_reference_pose1[2], future_reference_pose1[1] - current_reference_pose1[1])
+        # self.angle_from_ref2 = np.arctan2(future_reference_pose2[2] - current_reference_pose2[2], future_reference_pose2[1] - current_reference_pose2[1])
+
+
+        current_yaw = yaw
+        
+        # if abs(self.angle_from_ref1)-abs(self.angle_from_ref2) < 0.1 and abs(self.angle_from_ref1)-abs(self.angle_from_ref2) > -0.1:
+        if self.angle_from_ref - current_yaw < 0.2 and self.angle_from_ref - current_yaw > -0.2:
+            if self.weight_steering != 100:
+                self.weight_steering = 100
+                self.problem_setup()
+
+        else:
+            if self.weight_steering != 10:
+                self.weight_steering = 10
+                self.problem_setup()
     
     def slipAngleCalc(self, x0):
         x = [self.X0_slip[0] - self.prev_x0[0]]
@@ -535,6 +614,93 @@ def sub_angles_complex(a1, a2):
     phase = cmath.phase(cpx)
 
     return phase
+
+class KalmanFilter():
+    def __init__(self):
+        dt = 0.2
+        L = 0.324
+        self.F = np.array([
+        [1, 0, -dt*np.sin(0), dt*np.cos(0)],  # Partial derivative wrt x
+        [0, 1, dt*np.cos(0), dt*np.sin(0)],   # Partial derivative wrt y
+        [0, 0, 1, 0],                         # Partial derivative wrt theta
+        [0, 0, 0, 1]                          # Partial derivative wrt v
+    ])
+        self.H = np.array([
+        [1, 0, 0, 0],  # Measure x
+        [0, 1, 0, 0]   # Measure y
+    ])
+
+        self.n = self.F.shape[1]
+        self.m = self.H.shape[0]
+        self.B = np.array([
+        [dt*np.cos(0), 0],
+        [dt*np.sin(0), 0],
+        [0, dt/L],
+        [0, dt]
+    ])
+        self.Q = np.eye(4) * 0.9  # Process noise covariance
+        self.R = np.eye(2) * 0.01   # Measurement noise covariance
+        self.P = np.eye(self.n)
+        self.x = np.array([0, 0, 0, 0]).reshape(4, 1)
+        self.prev_speed = 0.0
+
+    def predict(self, u=np.zeros((2, 1))):
+        self.x = np.dot(self.F, self.x) + np.dot(self.B, u)
+        self.P = np.dot(np.dot(self.F, self.P), self.F.T) + self.Q
+        return self.x
+
+    def update(self, z):
+        y = z - np.dot(self.H, self.x)
+        S = self.R + np.dot(self.H, np.dot(self.P, self.H.T))
+        K = np.dot(np.dot(self.P, self.H.T), np.linalg.inv(S))
+        self.x = self.x + np.dot(K, y)
+        I = np.eye(self.n)
+        self.P = np.dot(np.dot(I - np.dot(K, self.H), self.P), 
+                        (I - np.dot(K, self.H)).T) + np.dot(np.dot(K, self.R), K.T)
+        
+        
+    def kalman(self, x_pf,speed, steering, dt , mapname, theta):
+        # u = [0.1,0.01]
+        L = 0.324
+        # theta  = self.x[2,0]
+        dt = 0.15
+
+        self.F = np.array([
+        [1, 0, -dt*np.sin(theta)*speed, dt*np.cos(theta)*speed],  
+        [0, 1, dt*np.cos(theta)*speed, -dt*np.sin(theta)*speed],   
+        [0, 0, 1, dt/L*np.tan(steering)],                         
+        [0, 0, 0, 1]                          
+    ])
+
+        self.B = np.array([
+        [0, 0],
+        [0, 0],
+        [dt*speed/(L*np.cos(steering)**2), 0],
+        [0 ,dt]
+    ])
+        
+        u = np.array([steering, speed]).reshape(2,1)
+        # u = np.array([steering, (speed-self.prev_speed)/(dt)]).reshape(2,1)
+        # self.prev_speed = speed
+        self.predict(u)
+        x_pf = np.array(x_pf).reshape(2,1)
+        self.update(x_pf)
+
+        waypoints = np.loadtxt('maps/' + mapname + '_raceline.csv', delimiter=',')
+        points = np.vstack((waypoints[:, 1], waypoints[:, 2])).T
+        # new_coord = np.array(self.x[:2].flatten())
+
+        kal_coord = self.x[:2].flatten()
+        # poses = np.vstack((x_pf[0], x_pf[1])).T
+        # min_dist = np.linalg.norm(poses - points,axis = 1)
+        # ego_index = np.argmin(min_dist)
+        # new_coord = np.array([(kal_coord[0]+points[ego_index+4][0]+x_pf[0][0])/3, (kal_coord[1]+points[ego_index+4][1]+x_pf[1][0])/3])
+        T_dt = 0.16
+        new_coord = np.array([(kal_coord[0]+T_dt*np.cos(theta)*speed), (kal_coord[1])+T_dt*np.sin(theta)*speed])
+
+
+        return new_coord[0], new_coord[1]
+        #return the x_pf for a quick check
         
 #_________________________________________________________________________________________________________________________
 def main(args = None):

@@ -118,9 +118,9 @@ def example():
 
 
 def plot_ref_true_pf():
-    pf_data = np.loadtxt("Benchmark_car/Imgs/2708_MPC_sim_CornerHallE_sim_Car_1.0.csv",delimiter=',')
+    pf_data = np.loadtxt("Benchmark_car/Imgs/3008_MPCC_CornerHallE_sim_Car_2_car.csv",delimiter=',')
     pf_data = pf_data[:,1:3]
-    true_data = np.loadtxt("Benchmark_car/Imgs/2708_MPC_trueOdom.csv",delimiter=',')
+    true_data = np.loadtxt("Benchmark_car/Imgs/3008_MPCC_trueOdom.csv",delimiter=',')
     true_data = true_data[:,0:2]
     reference_data = np.loadtxt("maps/CornerHallE_raceline.csv",delimiter=',')
     reference_data = reference_data[:110,1:3]
@@ -135,9 +135,9 @@ def plot_ref_true_pf():
         #     plt.scatter(pf_data[i,0], pf_data[i,1], label = 'Particle Filter Path', c = 'r')
         #     plt.scatter(true_data[i,0], true_data[i,1], label = 'True Path', c = 'b')
         # else:
-        # plt.plot(reference_data[:,0], reference_data[:,1], label = 'Reference Path', c = 'k')
-        plt.scatter(pf_data[:i,0], pf_data[:i,1], label = 'Particle Filter Path', c = 'r')
-        plt.scatter(true_data[:i,0], true_data[:i,1], label = 'True Path', c = 'b')
+        plt.plot(reference_data[:,0], reference_data[:,1], label = 'Reference Path', c = 'k')
+        plt.scatter(pf_data[i,0], pf_data[i,1], label = 'Particle Filter Path', c = 'r')
+        plt.scatter(true_data[i,0], true_data[i,1], label = 'True Path', c = 'b')
         plt.legend()
         plt.xlabel('x (cm)')
         plt.ylabel('y (cm)')

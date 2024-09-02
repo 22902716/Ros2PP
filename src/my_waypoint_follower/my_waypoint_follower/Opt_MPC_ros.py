@@ -12,9 +12,9 @@ import casadi as ca
 
 speed_profile_gain = 1.0
 maxspeed = 2.
-testmode_txt = "sim_Car"
-# testmode_txt = "real_Car"
-date = "2708"
+# testmode_txt = "sim_Car"
+testmode_txt = "real_Car"
+date = "3008"
 
 class MPCNode (Node):
     def __init__(self):
@@ -118,7 +118,7 @@ class MPCNode (Node):
         
         self.save_true_odom(self.true_x0)
         
-        # self.get_logger().info(f"prev_x = {str(self.x0[0])} prev_x = {str(self.x0[1])} + {str(self.x0[2])} and {str(self.x0[3])}")       
+        self.get_logger().info(f"prev_x = {str(self.x0[0])} prev_x = {str(self.x0[1])} + {str(self.x0[2])} and {str(self.x0[3])}")       
 
         
         # self.x0[0],self.x0[1] = self.kalFilter.kalman(self.x0[:2], self.x0[3], self.predict_steering, self.planner.dt, self.mapname, self.x0[2])
@@ -126,8 +126,8 @@ class MPCNode (Node):
 
         # self.x0[0], self.x0[1] = self.add_distance(self.x0[0], self.x0[1], self.x0[2], self.predict_steering, self.x0[3]) 
 
-        # self.get_logger().info(f"curr_x = {str(self.x0[0])} curr_y = {str(self.x0[1])} + {str(self.x0[2])} and {str(self.x0[3])}")       
-        self.get_logger().info(f"{str(self.planner.steering_weight)}")
+        self.get_logger().info(f"curr_x = {str(self.x0[0])} curr_y = {str(self.x0[1])} + {str(self.x0[2])} and {str(self.x0[3])}")       
+        # self.get_logger().info(f"{str(self.planner.angle_from_ref)} ------ {str(self.planner.steering_weight)}-------{self.x0[2]}")
 
         if self.x0[0] == 0: 
             self.x0[0] = 0.0001
@@ -153,7 +153,7 @@ class MPCNode (Node):
             rclpy.shutdown()    
         else:
             if self.cmd_current_timer - self.cmd_start_timer >= 0.0:
-                if self.Joy7 == 0:
+                if self.Joy7 == 1:
                 	# self.get_logger().info("controller active")
                             
                     indx, trackErr, speed, steering,x_bar, x_ref = self.planner.plan(self.x0)
@@ -223,6 +223,7 @@ class MPC():
         self.dt_gain = 0.1         #tune these two parameters before running
         self.dt_constant = 0.15
         self.steering_weight = 0.9
+        self.angle_from_ref = 0.0
 
 
     def load_waypoints(self,mapname):
@@ -372,15 +373,19 @@ class MPC():
         return ego_index, trackErr, speed, u_bar[0][0], x_bar, reference_path # return the first control action
     
     def steering_weight_change(self, ego_index,yaw):
-        future_reference_pose = self.waypoints[ego_index + 10]
+        future_reference_pose = self.waypoints[ego_index + 20]
         current_reference_pose = self.waypoints[ego_index]
         angle_from_ref = np.arctan2(future_reference_pose[2] - current_reference_pose[2], future_reference_pose[1] - current_reference_pose[1])
+
+        self.angle_from_ref = np.arctan2(future_reference_pose[2] - current_reference_pose[2], future_reference_pose[1] - current_reference_pose[1])
         current_yaw = yaw
         
-        if angle_from_ref-current_yaw < 0.1:
-            self.steering_weight = 1.5
+        if angle_from_ref-current_yaw < 0.1 and angle_from_ref-current_yaw > -0.1:
+            self.steering_weight = 3
         else:
-            self.steering_weight = 0.9
+            # self.steering_weight = 0.9  #default worked for maxspeed 2
+            self.steering_weight = 1.1
+
                 
     def generate_optimal_path(self, x0_in, x_ref, u_init):
         """generates a set of optimal control inputs (and resulting states) for an initial position, reference trajectory and estimated control
