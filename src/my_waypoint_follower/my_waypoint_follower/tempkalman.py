@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 class KalmanFilter(object):
     def __init__(self, F=None, B=None, H=None, Q=None, R=None, P=None, x0=None):
@@ -58,8 +59,8 @@ def example():
         [0, 1, 0, 0]   # Measure y
     ])
 
-    Q = np.eye(4) * 0.001  # Process noise covariance
-    R = np.eye(2) * 0.05   # Measurement noise covariance
+    Q = np.eye(4) * 0.0004  # Process noise covariance
+    R = np.eye(2) * 0.5   # Measurement noise covariance
 
     # Initial state estimate
     x0 = np.array([0, 0, 0, 0]).reshape(4, 1)
@@ -86,34 +87,53 @@ def example():
         # print(measurements[:, i])
         z = measurements_pf[:, i].reshape(2, 1)
 
+        if i == 120:
+            Q = np.eye(4) * 0.002  # Process noise covariance
+            R = np.eye(2) * 0.5   # Measurement noise covariance
+            kf = KalmanFilter(F=F, B=B, H=H, Q=Q, R=R, x0=kf.x)
+        if i == 210:
+            Q = np.eye(4) * 0.0004  # Process noise covariance
+            R = np.eye(2) * 0.5   # Measurement noise covariance
+            kf = KalmanFilter(F=F, B=B, H=H, Q=Q, R=R, x0=kf.x)
+
+
         kf.predict(u)
         kf.update(z)
         kal_coord = kf.x[:2].flatten()
-        print(kf.x)
+        print(i)
 
         poses = np.vstack((x_measurements_pf[i], y_measurements_pf[i])).T
         # print(poses)
         min_dist = np.linalg.norm(poses - points,axis = 1)
         ego_index = np.argmin(min_dist)
         # print((kal_coord[0]+points[ego_index][0])/2) 
-        new_coord = np.array([(kal_coord[0]+points[ego_index][0])/2, (kal_coord[1]+points[ego_index][1])/2])
+        # new_coord = np.array([(kal_coord[0]+points[ego_index][0])/2, (kal_coord[1]+points[ego_index][1])/2])
+        new_coord = np.array([kal_coord[0], kal_coord[1]])
 
         predictions_kal.append(kf.x[:2].flatten())
         predictions_txt = np.array(predictions_kal)
-        plt.scatter(x_measurements_pf[i], y_measurements_pf[i], label='Particle Filter Measurements', c = 'r')
-        plt.scatter(new_coord[0], new_coord[1], label='Kalman Filter Prediction',c = 'k')
-        plt.scatter(x_measurements_true[i], y_measurements_true[i], label='True Measurements', c = 'b',)
-        plt.scatter(points[ego_index, 0], points[ego_index, 1], label='Waypoints', c = 'y')
-        plt.pause(0.01)
+        # plt.scatter(x_measurements_pf[i], y_measurements_pf[i], label='Particle Filter Measurements', c = 'r')
+        # plt.scatter(new_coord[0], new_coord[1], label='Kalman Filter Prediction',c = 'k')
+        # plt.scatter(x_measurements_true[i], y_measurements_true[i], label='True Measurements', c = 'b',)
+        # plt.scatter(points[ego_index, 0], points[ego_index, 1], label='Waypoints', c = 'y')
+        # plt.pause(0.05)
 
     # predictions = np.array(predictions_kal)
 
-    # plt.scatter(x_measurements, y_measurements, label='Measurements', c = 'r')
-    # plt.scatter(predictions[:, 0], predictions[:, 1], label='Kalman Filter Prediction',c = 'k')
+    plt.plot(-y_measurements_pf, x_measurements_pf, label='Measurements', c = 'r')
+    plt.plot(-predictions_txt[:, 1], predictions_txt[:, 0], label='Kalman Filter Prediction',c = 'k')
     plt.legend()
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plt.xlabel('x (m)')
+    plt.ylabel('y (m)')
     plt.title('Kalman Filter Smoothing')
+    # print(x_measurements_pf[:,0].shape)
+
+    save_txt = np.vstack((predictions_txt[:,0], predictions_txt[:,1])).T
+    save_txt1 = np.vstack(( x_measurements_pf, y_measurements_pf)).T
+    final_txt = np.hstack((save_txt, save_txt1))
+
+
+    np.savetxt('particle_filter/cornerHall_1_KF.csv', final_txt, delimiter=',')
     plt.show()
 
 
@@ -127,7 +147,7 @@ def plot_ref_true_pf():
 
     plt.figure()
 
-    for i in range(len(pf_data)):
+    # for i in range(len(pf_data)):
 
         # if int(i/4) > 20:
             
@@ -135,17 +155,66 @@ def plot_ref_true_pf():
         #     plt.scatter(pf_data[i,0], pf_data[i,1], label = 'Particle Filter Path', c = 'r')
         #     plt.scatter(true_data[i,0], true_data[i,1], label = 'True Path', c = 'b')
         # else:
-        plt.plot(reference_data[:,0], reference_data[:,1], label = 'Reference Path', c = 'k')
-        plt.scatter(pf_data[i,0], pf_data[i,1], label = 'Particle Filter Path', c = 'r')
-        plt.scatter(true_data[i,0], true_data[i,1], label = 'True Path', c = 'b')
-        plt.legend()
-        plt.xlabel('x (cm)')
-        plt.ylabel('y (cm)')
-        plt.title('Reference Path vs True Path vs Particle Filter Path')
-        plt.pause(0.1)
-        plt.clf()   
+        # # plt.plot(reference_data[:,0], reference_data[:,1], label = 'Reference Path', c = 'k')
+        # plt.scatter(pf_data[i,0], pf_data[i,1], label = 'Particle Filter Path', c = 'r')
+        # plt.scatter(true_data[i,0], true_data[i,1], label = 'True Path', c = 'b')
+        # plt.legend()
+        # plt.xlabel('x (cm)')
+        # plt.ylabel('y (cm)')
+        # plt.title('Reference Path vs True Path vs Particle Filter Path')
+        # plt.pause(0.1)
+        # plt.clf()   
+
+    plt.scatter(-pf_data[:,1], pf_data[:,0], label = 'Particle Filter Path', c = 'r', s = 0.9)
+    plt.scatter(-true_data[:,1], true_data[:,0], label = 'True Path', c = 'b', s = 0.9)
+    plt.legend()
+    plt.xlabel('x (cm)')
+    plt.ylabel('y (cm)')
+    plt.title('Reference Path vs True Path vs Particle Filter Path')
+    plt.show()
+
+def test():
+    import numpy as np
+    from matplotlib import pyplot as plt
+
+    fig, ax = plt.subplots()
+
+    # make data
+    data = np.loadtxt("particle_filter\cornerHall_1_KF.csv",delimiter=',')
+    pf_data = data[:,2:4]
+    Kf_data = data[:,0:2]
+    extent = (-3, 4, -4, 3)
+    ax.plot(-pf_data[:,1], pf_data[:,0], label = 'Particle Filter', c = 'r')
+    ax.plot(-Kf_data[:,1], Kf_data[:,0], label = 'Kalman Filter', c = 'b')
+
+    # inset Axes....
+    x1, x2, y1, y2 = 4, 9, 5.3, 5.5  # subregion of the original image
+    x11,x12,y11,y12= -0.5,0.1,1,3
+
+    axins = ax.inset_axes(
+        [0.3, 0.5, 0.6, 0.15],
+        xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+    axins.scatter(-pf_data[:,1], pf_data[:,0], label = 'Particle Filter', c = 'r', s = 0.9)
+    axins.scatter(-Kf_data[:,1], Kf_data[:,0], label = 'Kalman Filter', c = 'b', s = 0.9)
+
+    axins1 = ax.inset_axes(
+        [0.1, 0.1, 0.02, 0.8],
+        xlim=(x11, x12), ylim=(y11, y12), xticklabels=[], yticklabels=[])
+    
+    axins1.scatter(-pf_data[:,1], pf_data[:,0], label = 'Particle Filter', c = 'r', s = 0.9)
+    axins1.scatter(-Kf_data[:,1], Kf_data[:,0], label = 'Kalman Filter', c = 'b', s = 0.9)
+
+    ax.indicate_inset_zoom(axins, edgecolor="black")
+    ax.indicate_inset_zoom(axins1, edgecolor="black")
+
+    plt.legend()
+    plt.xlabel('x (m)')
+    plt.ylabel('y (m)')
+    plt.title('Kalman Filter Smoothing')
+
     plt.show()
 
 if __name__ == '__main__':
     # example()
     plot_ref_true_pf()
+    # test()
